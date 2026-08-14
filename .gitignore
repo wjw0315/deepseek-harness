@@ -38,3 +38,7 @@ apps/web/dist/
 worktrees/
 .agents/worktrees/
 .typert-*/
+.dsh-builds/
+apps/desktop/runtime-host/
+apps/desktop/dist/
+apps/desktop/node_modules/
