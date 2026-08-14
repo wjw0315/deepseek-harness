@@ -1,0 +1,12 @@
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.title {
+  font-weight: 600;
+}
+.value {
+  color: var(--dsw-text-tertiary, #8a8a8a);
+  font-variant-numeric: tabular-nums;
+}

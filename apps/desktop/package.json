@@ -1,0 +1,115 @@
+{
+  "name": "@deepseek-ai/dsh-desktop",
+  "description": "Electron desktop shell: spawns the dsh web host and opens the DeepSeek Harness GUI in a native macOS window",
+  "version": "0.1.0-rc.5",
+  "private": true,
+  "type": "commonjs",
+  "main": "dist/main.js",
+  "license": "MIT",
+  "scripts": {
+    "clean": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\"",
+    "build": "node scripts/check-host.cjs && tsc -p tsconfig.json",
+    "start": "electron .",
+    "package:dir": "npm run build && npm run build:host && electron-builder --mac --dir",
+    "package": "npm run build && npm run build:host && electron-builder --mac",
+    "build:host": "node scripts/package-host.cjs"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8",
+    "typescript": "^6.0.3"
+  },
+  "build": {
+    "appId": "ai.deepseek.harness.desktop",
+    "productName": "DeepSeek Harness",
+    "asar": true,
+    "directories": {
+      "output": "release",
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "host-dist/node_modules",
+        "to": "host/node_modules",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "host-dist/packages",
+        "to": "host/packages",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "host-dist/vendor",
+        "to": "host/vendor",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "host-dist/apps",
+        "to": "host/apps",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "host-dist/native",
+        "to": "host/native",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "host-dist/runtime",
+        "to": "host/runtime",
+        "filter": [
+          "**/*"
+        ]
+      },
+      {
+        "from": "host-dist/web-dist",
+        "to": "host/web-dist",
+        "filter": [
+          "**/*"
+        ]
+      }
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        },
+        {
+          "target": "zip",
+          "arch": [
+            "arm64",
+            "x64"
+          ]
+        }
+      ],
+      "category": "public.app-category.developer-tools",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
+    },
+    "dmg": {
+      "sign": false
+    },
+    "asarUnpack": [
+      "host/**/*"
+    ]
+  },
+  "author": "DeepSeek AI"
+}

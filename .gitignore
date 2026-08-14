@@ -38,3 +38,9 @@ apps/web/dist/
 worktrees/
 .agents/worktrees/
 .typert-*/
+apps/desktop/dist/
+apps/desktop/release/
+
+# Desktop shell build artifacts (self-contained host tree + releases)
+apps/desktop/host-dist/
+apps/desktop/.tmp-dsh-host-deploy/
