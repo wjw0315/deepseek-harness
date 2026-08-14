@@ -328,7 +328,7 @@ Write `apps/desktop/tests/tsconfig.json`:
 - [ ] **Step 4: Write `host-supervisor.spec.ts`**
 
 Write `apps/desktop/tests/host-supervisor.spec.ts`:
-```ts
+```ts ignore-check
 import { describe, expect, it } from 'vitest'
 import { createReadinessParser } from '../src/host-supervisor.ts'
 
@@ -358,7 +358,7 @@ describe('createReadinessParser', () => {
 - [ ] **Step 5: Write `window-lifecycle.spec.ts`**
 
 Write `apps/desktop/tests/window-lifecycle.spec.ts`:
-```ts
+```ts ignore-check
 import { describe, expect, it } from 'vitest'
 import { createDesktopLifecycle, type DesktopWindow } from '../src/window-lifecycle.ts'
 
