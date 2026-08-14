@@ -1,9 +1,18 @@
 {
   "extends": "../../../tsconfig.base.json",
   "compilerOptions": {
-    "rootDir": ".",
-    "outDir": "../lib/types/tests",
-    "types": ["node", "vitest"]
+    "composite": false,
+    "incremental": false,
+    "noEmit": true,
+    "rewriteRelativeImportExtensions": false,
+    "types": [
+      "node",
+      "vitest"
+    ]
   },
-  "include": ["./*.spec.ts"]
+  "include": [
+    "../scripts/**/*.ts",
+    "../src/**/*.ts",
+    "**/*.ts"
+  ]
 }
