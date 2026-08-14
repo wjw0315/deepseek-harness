@@ -7,6 +7,10 @@ packages:
   - native/landlock-run/packages/*
   # Product assemblies over the package tier; apps/cli owns the `dsh` bin.
   - apps/*
+  # Deploy root (dependency-only manifest) whose closure electron-builder stages
+  # into the packaged desktop Host at Contents/Resources/host. Resolution-only,
+  # not a build target — mirrors python/sdk-runtime.
+  - apps/desktop/runtime
   - website
   # The runnable demo leaves join as ONE workspace member: examples/package.json
   # declares the union of every leaf's cordis.yml plugins as workspace:*, so a
