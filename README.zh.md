@@ -34,6 +34,8 @@ pnpm run build
 pnpm dsh web
 ```
 
+桌面应用（`apps/desktop`）将 Web Host 打包为常驻系统托盘的原生 macOS 应用。
+
 ## 社区与支持
 
 - 欢迎通过 [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions) 提交反馈或 bug 报告。

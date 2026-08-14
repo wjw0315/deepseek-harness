@@ -34,6 +34,8 @@ pnpm run build
 pnpm dsh web
 ```
 
+The desktop application (`apps/desktop`) packages the Web Host as a native macOS app resident in the tray.
+
 ## Community and support
 
 - Feel free to submit feedback or bug reports through [GitHub Discussions](https://github.com/deepseek-ai/deepseek-harness/discussions).
