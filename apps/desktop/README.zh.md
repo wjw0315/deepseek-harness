@@ -1,5 +1,7 @@
 # DeepSeek Harness 桌面应用
 
+[English](README.md) | 中文
+
 桌面应用监管现有的回环 Web Host，并在其窗口关闭后从系统托盘持续保活。
 
 ## 开发

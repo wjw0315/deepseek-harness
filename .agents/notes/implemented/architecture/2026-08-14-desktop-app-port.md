@@ -2,6 +2,8 @@
 
 Status: implemented
 
+English | [中文](2026-08-14-desktop-app-port.zh.md)
+
 ## Problem
 
 The DeepSeek Harness GUI is a loopback web application: a `dsh web` Host serves the Web frontend over HTTP on `127.0.0.1`, and users reach it in a browser. Shipping the harness as a double-click macOS desktop app requires a native shell that hosts that loopback GUI and a runtime that does not depend on the user installing Node; a window that closes should keep the harness alive, and the host process must not leak when the user quits for real.

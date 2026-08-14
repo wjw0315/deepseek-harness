@@ -1,5 +1,7 @@
 # DeepSeek Harness Desktop
 
+English | [中文](README.zh.md)
+
 The desktop app supervises the existing loopback Web Host and keeps it alive from the system tray when its window is closed.
 
 ## Development
