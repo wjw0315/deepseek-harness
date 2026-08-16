@@ -10,7 +10,7 @@
 - id: webserver
   config:
     host: 127.0.0.1
-    port: 3081
+    port: 3181
 
 - insert:
     - id: cordis-host-runner

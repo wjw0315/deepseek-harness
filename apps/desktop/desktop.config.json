@@ -1,0 +1,6 @@
+{
+  "comment": "DeepSeek Harness desktop Web Host configuration.\nThese values are read at startup and are user-specific — edit your local copy, and be careful not to commit a private domain. Restart the app to apply; no repackaging needed.\n - webPort: fixed loopback port the tunnel must point to. Env override DSH_DESKTOP_WEB_PORT. 0 = OS-assigned.\n - trustedHosts: authorities the /api browser-trust fence accepts (your public domain). Env override DSH_DESKTOP_TRUSTED_HOSTS (comma-separated).",
+  "webHost": "127.0.0.1",
+  "webPort": 51925,
+  "trustedHosts": []
+}

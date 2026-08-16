@@ -5,7 +5,7 @@ import { spawn } from 'node:child_process'
 
 const SURFACES = new Map([
   // The browser surface with the cordis toolset layered on: `dsh web --config`
-  // applies this overlay over the shipped web composition; it owns port 3081.
+  // applies this overlay over the shipped web composition; it owns port 3181.
   ['web', ['--import', 'tsx', 'apps/cli/src/bin.ts', 'web', '--patch', 'examples/web-cordis/cordis.yml']],
   ['acp', ['--import', 'tsx', 'packages/examples/acp-demo/src/bin.ts', '--config', 'examples/acp-agent/cordis-tools.cordis.yml']],
 ])
@@ -17,6 +17,6 @@ if (args === undefined || process.argv.length > 3) {
   process.exit(2)
 }
 
-if (surface === 'web') console.log('Cordis Web: http://127.0.0.1:3081')
+if (surface === 'web') console.log('Cordis Web: http://127.0.0.1:3181')
 const child = spawn(process.execPath, args, { stdio: 'inherit' })
 child.on('exit', (code, signal) => { process.exit(signal === null ? code ?? 1 : 1) })

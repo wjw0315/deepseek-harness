@@ -1,6 +1,6 @@
 /** Electron application shell for the loopback DeepSeek Harness Web Host. */
 
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
@@ -48,6 +48,88 @@ function hostPaths(): { nodeExecutable: string; cliEntry: string; cwd: string; e
     cwd: app.getPath('home'),
     electronRunAsNode: true,
   }
+}
+
+/**
+ * The fixed Web Host port from the desktop config file, when present.
+ * Read from desktop.config.json beside the app in dev, or from the
+ * bundled desktop-resources when packaged. Falls back to '0' (OS-assigned).
+ * @returns a string port ('0' means the OS assigns one).
+ */
+/**
+ * Desktop Web Host config read from JSON. The writable per-user copy (under
+ * Electron's userData) is read first so the settings card's changes apply on
+ * the next spawn; the bundled copy (or the repo copy in development) provides
+ * defaults. Values that fail to parse are ignored, never fatal.
+ */
+interface DesktopHostConfig {
+  webHost?: '127.0.0.1' | 'localhost'
+  webPort?: number
+  trustedHosts?: string[]
+}
+
+/** The writable per-user config path the settings card writes to and we read. */
+function userDesktopConfigPath(): string {
+  return join(app.getPath('userData'), 'desktop.config.json')
+}
+
+/** Precedence of candidate config files, most specific first. */
+function desktopConfigCandidates(): string[] {
+  return [userDesktopConfigPath(), app.isPackaged
+    ? join(process.resourcesPath, 'desktop-resources', 'desktop.config.json')
+    : join(DESKTOP_DIR, 'desktop.config.json')]
+}
+
+function readDesktopConfig(): DesktopHostConfig {
+  const config: DesktopHostConfig = {}
+  for (const file of desktopConfigCandidates()) {
+    if (!existsSync(file)) continue
+    try {
+      const record = JSON.parse(readFileSync(file, 'utf8')) as Record<string, unknown>
+      if (typeof record.webHost === 'string' && (record.webHost === '127.0.0.1' || record.webHost === 'localhost')) {
+        config.webHost = record.webHost
+      }
+      if (typeof record.webPort === 'number' && Number.isInteger(record.webPort) && record.webPort >= 0 && record.webPort <= 65535) {
+        config.webPort = record.webPort
+      }
+      if (Array.isArray(record.trustedHosts)) {
+        config.trustedHosts = record.trustedHosts.filter((entry): entry is string => typeof entry === 'string' && entry !== '')
+      }
+    } catch {
+      // A malformed config file must not stop the app from booting.
+    }
+  }
+  return config
+}
+
+/** The bind host passed to 'dsh web --host'. Env var beats the config file. */
+function resolveWebHost(): string {
+  return process.env.DSH_DESKTOP_WEB_HOST === '0.0.0.0'
+    ? '127.0.0.1' // the harness rejects an all-interfaces bind; clamp to loopback
+    : process.env.DSH_DESKTOP_WEB_HOST ?? readDesktopConfig().webHost ?? '127.0.0.1'
+}
+
+/**
+ * The fixed Web Host port: env var beats the config file; '0' means
+ * OS-assigned.
+ */
+function resolveWebPort(): string {
+  const fromEnv = process.env.DSH_DESKTOP_WEB_PORT
+  if (fromEnv !== undefined && /^\d+$/.test(fromEnv)) return fromEnv
+  return readDesktopConfig().webPort === undefined ? '0' : String(readDesktopConfig().webPort)
+}
+
+/**
+ * The extra authorities the /api browser-trust fence accepts. A
+ * comma-separated DSH_DESKTOP_TRUSTED_HOSTS env var beats the config file, so
+ * a deployed app can be repointed to a new public host without a rebuild.
+ */
+function resolveTrustedHosts(): string[] {
+  const fromEnv = process.env.DSH_DESKTOP_TRUSTED_HOSTS
+  if (fromEnv !== undefined && fromEnv !== '') {
+    return fromEnv.split(',').map(entry => entry.trim()).filter(entry => entry !== '')
+  }
+  return readDesktopConfig().trustedHosts ?? []
 }
 
 function assertHostArtifacts(paths: ReturnType<typeof hostPaths>): void {
@@ -193,9 +275,13 @@ async function boot(): Promise<void> {
   host = createHostSupervisor({
     spawnHost: () => spawnDshWeb({
       ...paths,
+      webHost: resolveWebHost(),
+      webPort: resolveWebPort(),
+      trustedHosts: resolveTrustedHosts(),
       env: {
         ...process.env,
         DSH_DESKTOP: '1',
+        DSH_DESKTOP_HOST_CONFIG: userDesktopConfigPath(),
       },
     }),
     log: chunk => process.stderr.write(chunk),

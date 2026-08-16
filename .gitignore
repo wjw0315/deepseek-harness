@@ -41,4 +41,6 @@ worktrees/
 .dsh-builds/
 apps/desktop/runtime-host/
 apps/desktop/dist/
+apps/desktop/.dsh-builder-cache/
+apps/desktop/.dsh-electron-dist/
 apps/desktop/node_modules/

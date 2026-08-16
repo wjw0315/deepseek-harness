@@ -259,6 +259,12 @@ export interface SpawnDshWebOptions {
   readonly env: NodeJS.ProcessEnv
   /** Run the Electron executable as its bundled Node runtime. */
   readonly electronRunAsNode?: boolean
+  /** Loopback bind host for the Host; the harness rejects non-loopback. */
+  readonly webHost?: string
+  /** Fixed loopback port for the Host; '0' asks the OS to pick one. */
+  readonly webPort?: string
+  /** Authorities the /api browser-trust fence accepts (host or host:port). */
+  readonly trustedHosts?: readonly string[]
 }
 
 function streamAdapter(stream: NodeJS.ReadableStream): HostChild['stdout'] {
@@ -280,7 +286,19 @@ export function spawnDshWeb(options: SpawnDshWebOptions): HostChild {
   const env = options.electronRunAsNode
     ? { ...options.env, ELECTRON_RUN_AS_NODE: '1' }
     : options.env
-  const process = spawn(options.nodeExecutable, ['--expose-internals', options.cliEntry, 'web', '--host', '127.0.0.1', '--port', '0'], {
+  // The Web Host listens on an OS-assigned loopback port by default. Set
+  // DSH_DESKTOP_WEB_PORT (or the desktop config file's webPort) to a fixed
+  // port (e.g. 51925) so a tunnel or reverse proxy can keep a stable origin
+  // target across app restarts. The env var wins over the configured value.
+  const webPort = env.DSH_DESKTOP_WEB_PORT ?? options.webPort ?? '0'
+  // The harness CLI rejects 0.0.0.0 (remote-code-execution exposure), so the
+  // resolve side in main.ts clamps a bad host to loopback; keep it loopback here.
+  const webHost = options.webHost === '0.0.0.0' ? '127.0.0.1' : (options.webHost ?? '127.0.0.1')
+  const args = ['--expose-internals', options.cliEntry, 'web', '--host', webHost, '--port', webPort]
+  for (const entry of options.trustedHosts ?? []) {
+    if (typeof entry === 'string' && entry !== '') args.push('--trusted-host', entry)
+  }
+  const process = spawn(options.nodeExecutable, args, {
     cwd: options.cwd,
     env,
     stdio: ['ignore', 'pipe', 'pipe'],

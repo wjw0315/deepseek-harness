@@ -94,6 +94,12 @@
     - id: plugin-inventory
       name: '@deepseek-ai/dsh-host-plugin-inventory'
 
+    # Desktop Web Host configuration: a settings card for webHost/webPort/
+    # trustedHosts. Only the Electron shell sets DSH_DESKTOP_HOST_CONFIG, so a
+    # standalone 'dsh web' sees the card but writes nothing.
+    - id: desktop-host-config
+      name: '@deepseek-ai/dsh-desktop-host-config'
+
     # The API gateway: the transport-agnostic dispatch face every client shape
     # shares. The base layer's agent-default-model service owns the default model.
     - id: api-gateway
@@ -194,6 +200,10 @@
 
     - id: ui-settings-plugin-inventory
       name: '@deepseek-ai/dsh-client-ui-settings-plugin-inventory'
+
+    # Desktop web Host configuration row in General settings.
+    - id: client-desktop-host-config
+      name: '@deepseek-ai/dsh-client-desktop-host-config'
 
     - id: ui-conversation
       name: '@deepseek-ai/dsh-client-ui-conversation'
