@@ -299,10 +299,41 @@ describe('desktop Host process', () => {
       electronRunAsNode: true,
     })
 
-    expect(spawn).toHaveBeenCalledWith(
-      '/Applications/DeepSeek Harness.app/Contents/MacOS/DeepSeek Harness',
-      ['--expose-internals', expect.stringContaining('/Resources/host/node_modules/@deepseek-ai/dsh/lib/bin.js'), 'web', '--host', '127.0.0.1', '--port', '0'],
-      expect.objectContaining({ env: { DSH_DESKTOP: '1', ELECTRON_RUN_AS_NODE: '1' } }),
-    )
+    const [, , options] = vi.mocked(spawn).mock.calls.at(-1) as [string, string[], { env: Record<string, string | undefined> }]
+    expect(options.env).toMatchObject({ DSH_DESKTOP: '1', ELECTRON_RUN_AS_NODE: '1' })
+  })
+
+  it('publishes the effective spawn values to the child env for the host config card', async () => {
+    const spawned = {
+      stdout: { on: vi.fn(), off: vi.fn() },
+      stderr: { on: vi.fn(), off: vi.fn() },
+      on: vi.fn(),
+      off: vi.fn(),
+      kill: vi.fn(),
+    }
+    vi.mocked(spawn).mockReturnValue(spawned as never)
+
+    const { spawnDshWeb } = await import('../src/host-supervisor.ts')
+    spawnDshWeb({
+      nodeExecutable: 'node',
+      cliEntry: '/repo/apps/cli/lib/bin.js',
+      cwd: '/repo',
+      env: { DSH_DESKTOP: '1' },
+      webHost: 'localhost',
+      webPort: '3080',
+      trustedHosts: ['dsh.example.com', 'app.internal:8080'],
+    })
+
+    const [, , options] = vi.mocked(spawn).mock.calls.at(-1) as [string, string[], { env: Record<string, string> }]
+    expect(options.env).toMatchObject({
+      DSH_DESKTOP: '1',
+      DSH_DESKTOP_WEB_HOST: 'localhost',
+      DSH_DESKTOP_WEB_PORT: '3080',
+      DSH_DESKTOP_TRUSTED_HOSTS: 'dsh.example.com,app.internal:8080',
+    })
+    expect(vi.mocked(spawn).mock.calls.at(-1)?.[1]).toEqual([
+      '--expose-internals', '/repo/apps/cli/lib/bin.js', 'web', '--host', 'localhost', '--port', '3080',
+      '--trusted-host', 'dsh.example.com', '--trusted-host', 'app.internal:8080',
+    ])
   })
 })

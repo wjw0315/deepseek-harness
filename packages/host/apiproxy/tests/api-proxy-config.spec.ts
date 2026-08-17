@@ -404,6 +404,31 @@ describe('settings domain', () => {
       .toEqual({ secretPath: '/etc/shadow' })
   })
 
+  it('serves the desktop host configuration namespace, so the Desktop Web Host row persists', async () => {
+    // The desktop app's General settings row binds the desktop-host-config
+    // namespace. A namespace outside the served surface makes its scope report
+    // 'unavailable', refuse writes, and never reach the host's onChange that
+    // writes desktop.config.json — the row stays dead and its values vanish
+    // after restart. This pins the shipped feature namespace the desktop ships.
+    const ctx = await harness()
+    ctx.settings.register(settingsNamespace('desktop-host-config'), z.object({
+      webHost: z.union(['127.0.0.1', 'localhost']).default('127.0.0.1'),
+      webPort: z.number().step(1).min(0).max(65535).default(0),
+      trustedHosts: z.array(z.string()).default([]),
+    }), { base: { webHost: '127.0.0.1', webPort: 0, trustedHosts: [] } })
+    const api = createApiProxy(ctx, DEFAULTS)
+
+    expect(expectOk(await api.settings.describe(request({}))).namespaces.map(view => view.ns))
+      .toEqual(['desktop-host-config'])
+    expectOk(await api.settings.update(request({
+      ns: 'desktop-host-config',
+      patch: { webPort: 3080, trustedHosts: ['dsh.example.com'] },
+    })))
+    // The write reached the seam, so the host onChange can persist the JSON.
+    expect(ctx.settings.describe().find(view => String(view.ns) === 'desktop-host-config')?.value)
+      .toEqual({ webHost: '127.0.0.1', webPort: 3080, trustedHosts: ['dsh.example.com'] })
+  })
+
   it('serves product preference namespaces without invalidating the model catalog', async () => {
     const ctx = await harness()
     ctx.settings.register(settingsNamespace('ui-onboarding'), z.object({ welcomeNoticeVersion: z.string() }))

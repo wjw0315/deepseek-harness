@@ -9,12 +9,14 @@
  * in local state and committed only on Save.
  */
 
-import { useEffect, useState } from 'react'
+import react, { useEffect, useState } from 'react'
 import type { SnapshotStore } from '@deepseek-ai/dsh-client-runtime/client'
 import type { InjectFace, PropsLocale, PropsRuntime } from '@deepseek-ai/dsh-client-ui-slots'
 import { IconChevronDownOutline14 } from '@deepseek-ai/dsh-client-ui-primitives'
 import type { HostConfigRowState } from './settings-store.ts'
 import css from './DesktopHostConfigRow.module.css'
+
+type JsxElement = react.JSX.Element
 
 /** Registration-side business face for the host-backed preference. */
 export interface DesktopHostConfigRowInjected {
@@ -56,7 +58,7 @@ export function DesktopHostConfigRow({
   setWebHost,
   setWebPort,
   setTrustedHosts,
-}: DesktopHostConfigRowProps): JSX.Element {
+}: DesktopHostConfigRowProps): JsxElement {
   const snapshot = useDesktopHostConfig(s => s)
   const [open, setOpen] = useState(false)
   const [webHost, setWebHostDraft] = useState<'127.0.0.1' | 'localhost'>('127.0.0.1')
@@ -101,7 +103,7 @@ export function DesktopHostConfigRow({
           onClick={() => { setOpen(value => !value) }}
         >
           {pillLabel}
-          <IconChevronDownOutline14 className={css.chevron + (open ? ' ' + css.chevronOpen : '')} />
+          <IconChevronDownOutline14 className={[css.chevron, ...(open ? [css.chevronOpen] : [])].filter(Boolean).join(' ')} />
         </button>
       </div>
       {open && (
@@ -123,7 +125,7 @@ export function DesktopHostConfigRow({
             <label className={css.label} htmlFor="dhc-webport">{t('webPort')}</label>
             <input
               id="dhc-webport"
-              className={css.input + (portValid ? '' : ' ' + css.inputInvalid)}
+              className={[css.input, ...(portValid ? [] : [css.inputInvalid])].filter(Boolean).join(' ')}
               type="text"
               inputMode="numeric"
               value={webPort}

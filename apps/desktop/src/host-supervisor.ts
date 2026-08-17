@@ -294,13 +294,23 @@ export function spawnDshWeb(options: SpawnDshWebOptions): HostChild {
   // The harness CLI rejects 0.0.0.0 (remote-code-execution exposure), so the
   // resolve side in main.ts clamps a bad host to loopback; keep it loopback here.
   const webHost = options.webHost === '0.0.0.0' ? '127.0.0.1' : (options.webHost ?? '127.0.0.1')
+  // Publish the effective spawn values to the child. The host's
+  // dsh-desktop-host-config plugin seeds its settings base from these, so the
+  // Desktop Web Host row shows what this process actually runs with.
+  const publish = {
+    DSH_DESKTOP_WEB_HOST: webHost,
+    DSH_DESKTOP_WEB_PORT: webPort,
+    ...(options.trustedHosts === undefined || options.trustedHosts.length === 0 ? {} : {
+      DSH_DESKTOP_TRUSTED_HOSTS: options.trustedHosts.filter(entry => entry !== '').join(','),
+    }),
+  }
   const args = ['--expose-internals', options.cliEntry, 'web', '--host', webHost, '--port', webPort]
   for (const entry of options.trustedHosts ?? []) {
     if (typeof entry === 'string' && entry !== '') args.push('--trusted-host', entry)
   }
   const process = spawn(options.nodeExecutable, args, {
     cwd: options.cwd,
-    env,
+    env: { ...env, ...publish },
     stdio: ['ignore', 'pipe', 'pipe'],
     windowsHide: true,
   })

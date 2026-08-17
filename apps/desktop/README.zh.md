@@ -48,7 +48,7 @@ CI=true CSC_IDENTITY_AUTO_DISCOVERY=false \
 
 ### 设置卡（推荐）
 
-桌面载入 [`@deepseek-ai/dsh-desktop-host-config`](../host/desktop-host-config/README.md) 插件，它会在 GUI 设置里注册一张「桌面应用 Web Host」设置卡。在卡里改 `webHost` / `webPort` / `trustedHosts` 并保存，插件会把它们写入 Electron `userData` 下可写的 JSON 配置，桌面在下次启动时读取。重启应用即可生效。
+桌面载入 [`@deepseek-ai/dsh-desktop-host-config`](../host/desktop-host-config/README.md) 插件，它会在 GUI 设置里注册一张「桌面应用 Web Host」设置卡。卡片由壳实际启动 Host 的值播种（桌面通过 `DSH_DESKTOP_WEB_HOST` / `DSH_DESKTOP_WEB_PORT` / `DSH_DESKTOP_TRUSTED_HOSTS` 发布给 Host 进程），因此首次打开即显示实时的 `host:port`，而不是「不可用」或默认值。在卡里改 `webHost` / `webPort` / `trustedHosts` 并保存，插件会把它们写入 Electron `userData` 下可写的 JSON 配置，桌面在下次启动时读取。重启应用即可生效。任意端口 `0..65535` 均有效——`3080` 与任何固定端口一样可用。
 
 ### 配置文件
 

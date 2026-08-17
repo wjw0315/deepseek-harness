@@ -48,7 +48,7 @@ The desktop app launches the Web Host as `dsh web --host <host> --port <port> [-
 
 ### Settings card (recommended)
 
-The desktop mounts the [`@deepseek-ai/dsh-desktop-host-config`](../host/desktop-host-config/README.md) plugin, which registers a **桌面应用 Web Host** settings card in the GUI. Edit `webHost` / `webPort` / `trustedHosts` there and save; the plugin writes them to a writable JSON config under Electron's `userData`, which the desktop reads on the next spawn. Restart the app to apply.
+The desktop mounts the [`@deepseek-ai/dsh-desktop-host-config`](../host/desktop-host-config/README.md) plugin, which registers a **桌面应用 Web Host** settings card in the GUI. The card is seeded from the values the shell actually spawned the host with (the desktop publishes them as `DSH_DESKTOP_WEB_HOST` / `DSH_DESKTOP_WEB_PORT` / `DSH_DESKTOP_TRUSTED_HOSTS` to the host process), so it shows the live `host:port` on first open instead of `不可用` or defaults. Edit `webHost` / `webPort` / `trustedHosts` there and save; the plugin writes them to a writable JSON config under Electron's `userData`, which the desktop reads on the next spawn. Restart the app to apply. Any port `0..65535` is valid — `3080` works like any other fixed port.
 
 ### Config file
 

@@ -60,7 +60,10 @@ describe('DesktopHostConfigRow', () => {
     const controller = new HostConfigController(fakeScope(ready({ webPort: 51925, trustedHosts: ['a.example.com'] })))
     mount(controller)
     fireEvent.click(screen.getByRole('button', { name: '127.0.0.1:51925' }))
+    // getByLabelText returns HTMLElement; the control accessors are the user-visible value.
+    // oxlint-disable-next-line typescript/no-unnecessary-type-assertion
     expect((screen.getByLabelText('Port (0 = auto)') as HTMLInputElement).value).toBe('51925')
+    // oxlint-disable-next-line typescript/no-unnecessary-type-assertion
     expect((screen.getByLabelText('Trusted domains (comma-separated)') as HTMLTextAreaElement).value).toContain('a.example.com')
   })
 

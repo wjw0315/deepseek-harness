@@ -59,9 +59,13 @@ describe('HostConfigController', () => {
     await controller.setWebHost('localhost')
     await controller.setWebPort(8080)
     await controller.setTrustedHosts(['b.example.com'])
-    expect(scope.set).toHaveBeenCalledWith('webHost', 'localhost')
-    expect(scope.set).toHaveBeenCalledWith('webPort', 8080)
-    expect(scope.set).toHaveBeenCalledWith('trustedHosts', ['b.example.com'])
+    // The fake scope's bound setters are vi.fn references; asserting on the
+    // interface accessor keeps the controller decoupled from the vi mock.
+    // oxlint-disable-next-line typescript/unbound-method
+    const setter = scope.set
+    expect(setter).toHaveBeenCalledWith('webHost', 'localhost')
+    expect(setter).toHaveBeenCalledWith('webPort', 8080)
+    expect(setter).toHaveBeenCalledWith('trustedHosts', ['b.example.com'])
   })
 
   it('reports readiness false before any accepted section', () => {
