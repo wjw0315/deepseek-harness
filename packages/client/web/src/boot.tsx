@@ -51,6 +51,22 @@ import './base.css'
 export type BootSeams = Pick<ClientModuleSystemOptions, 'loadBundle'>
 
 /**
+ * Mark the document with the macOS desktop titlebar so the shell CSS can
+ * reserve it. The desktop shell tags `documentElement.dataset.titlebar = 'mac'`
+ * when its own `?dsh-desktop-platform=darwin` boot param is present (the
+ * macOS window runs hiddenInset with native traffic lights over the top-left;
+ * apps/desktop/src/main.ts). Browsers and other platforms leave the document
+ * unmarked and the web UI full-bleed. Pure over the search string so a unit
+ * test can drive it without running the boot chain.
+ * @param search - the renderer `window.location.search`.
+ */
+export function applyDesktopTitlebarMarker(search: string): void {
+  if (new URLSearchParams(search).get('dsh-desktop-platform') === 'darwin') {
+    document.documentElement.dataset.titlebar = 'mac'
+  }
+}
+
+/**
  * The modules package's own graph row id. The kernel adopts that entry
  * itself (its wrapper is statically registered — shell-bundled code, never
  * fetched), so the plugin-row loop must skip it: the vendored Group.create
@@ -95,6 +111,7 @@ export class AppWebEntry {
    * @returns resolves once the UI settled or the failure report rendered.
    */
   async run(): Promise<void> {
+    applyDesktopTitlebarMarker(window.location.search)
     this.manifest = parseBootManifest((globalThis as DshWindow).__DSH_BOOT__)
 
     this.modules = new ClientModuleSystem({

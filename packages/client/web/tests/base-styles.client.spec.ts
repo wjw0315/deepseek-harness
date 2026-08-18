@@ -63,4 +63,18 @@ describe('web shell base.css', () => {
     expect(platform).toBeGreaterThanOrEqual(0)
     expect(scrollbar).toBeGreaterThan(platform)
   })
+
+  it('reserves the macOS desktop title bar at the mount only when marked', () => {
+    // The macOS window runs hiddenInset with native traffic lights over the
+    // top-left; boot.tsx tags <html data-titlebar="mac"> from
+    // ?dsh-desktop-platform=darwin. This pins the 32px reservation (clears the
+    // traffic lights at trafficLightPosition y=18 with a small gap) so button
+    // space stays clear and only macOS — the marker's sole source — shifts the
+    // app down.
+    const rule = baseCss.match(/html\[data-titlebar='mac'\]\s*#root\s*\{([^}]*)\}/)
+    expect(rule).not.toBeNull()
+    const body = rule?.[1] ?? ''
+    expect(body).toContain('box-sizing: border-box')
+    expect(body).toContain('padding-top: 32px')
+  })
 })

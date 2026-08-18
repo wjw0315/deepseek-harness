@@ -15,6 +15,18 @@ body,
   margin: 0;
 }
 
+/* macOS desktop (hiddenInset) floats the native traffic lights over the window's
+   top-left. The web shell marks <html data-titlebar="mac"> from its
+   ?dsh-desktop-platform=darwin boot param (boot.tsx applyDesktopTitlebarMarker);
+   this reserves a 32px title bar at the top of the whole mount — clearing the
+   traffic lights (trafficLightPosition y=18, ~12px buttons) with a small gap —
+   so app content clears the window buttons on every column. Browsers and other
+   platforms leave <html> unmarked and the UI full-bleed. */
+html[data-titlebar='mac'] #root {
+  box-sizing: border-box;
+  padding-top: 32px;
+}
+
 body {
   font-family: var(--dsw-font-family);
   /* Grayscale antialiasing over subpixel rendering: WebKit/Blink and the
