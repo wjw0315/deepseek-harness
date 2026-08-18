@@ -44,3 +44,8 @@ apps/desktop/dist/
 apps/desktop/.dsh-builder-cache/
 apps/desktop/.dsh-electron-dist/
 apps/desktop/node_modules/
+# SQLite sidecar files from a test that defaulted a :memory: database to a
+# relative 'smoke' path at the repository root.
+smoke
+smoke-shm
+smoke-wal
