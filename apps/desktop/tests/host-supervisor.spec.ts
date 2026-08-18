@@ -61,6 +61,14 @@ function observeSettlement<T>(promise: Promise<T>): ReturnType<typeof vi.fn> {
   return settled
 }
 
+/** Yield until `spawnHost` has been called `count` times across microtasks. */
+async function waitForSpawns(spawnHost: ReturnType<typeof vi.fn>, count: number): Promise<void> {
+  for (let i = 0; i < 50 && spawnHost.mock.calls.length < count; i += 1) {
+    await Promise.resolve()
+  }
+  expect(spawnHost.mock.calls.length).toBeGreaterThanOrEqual(count)
+}
+
 afterEach(() => {
   vi.useRealTimers()
   vi.restoreAllMocks()
@@ -275,6 +283,86 @@ describe('desktop Host supervisor', () => {
     child.emitExit(null, 'SIGKILL')
     await vi.advanceTimersByTimeAsync(0)
     expect(settled).toHaveBeenCalledOnce()
+    await expect(closing).resolves.toBeUndefined()
+  })
+
+  it('restarts a ready host: stops it, starts a replacement, and resolves to the new URL', async () => {
+    const child = new FakeHostChild()
+    const replacement = new FakeHostChild()
+    const spawnHost = vi.fn()
+      .mockReturnValueOnce(child)
+      .mockReturnValueOnce(replacement)
+    const onUnexpectedExit = vi.fn()
+    const supervisor = createHostSupervisor({ spawnHost, onUnexpectedExit })
+    const starting = supervisor.start()
+    child.stdout.emit('dsh web: http://127.0.0.1:4567\n')
+    await starting
+
+    const restarted = supervisor.restart()
+    expect(spawnHost).toHaveBeenCalledTimes(1)
+    expect(child.signals).toEqual(['SIGTERM'])
+
+    child.emitExit(0)
+    await waitForSpawns(spawnHost, 2)
+    replacement.stdout.emit('dsh web: http://127.0.0.1:7890\n')
+    await expect(restarted).resolves.toBe('http://127.0.0.1:7890')
+
+    expect(onUnexpectedExit).not.toHaveBeenCalled()
+  })
+
+  it('coalesces concurrent restart calls into one replacement start', async () => {
+    const child = new FakeHostChild()
+    const replacement = new FakeHostChild()
+    const spawnHost = vi.fn()
+      .mockReturnValueOnce(child)
+      .mockReturnValueOnce(replacement)
+    const supervisor = createHostSupervisor({ spawnHost })
+    const starting = supervisor.start()
+    child.stdout.emit('dsh web: http://127.0.0.1:4567\n')
+    await starting
+
+    const first = supervisor.restart()
+    const second = supervisor.restart()
+    expect(second).toBe(first)
+    expect(spawnHost).toHaveBeenCalledTimes(1)
+
+    child.emitExit(0)
+    await waitForSpawns(spawnHost, 2)
+    replacement.stdout.emit('dsh web: http://127.0.0.1:7890\n')
+    await expect(first).resolves.toBe('http://127.0.0.1:7890')
+  })
+
+  it('restart before any start acts as an initial start', async () => {
+    const child = new FakeHostChild()
+    const spawnHost = vi.fn(() => child)
+    const supervisor = createHostSupervisor({ spawnHost })
+
+    const restarted = supervisor.restart()
+    await waitForSpawns(spawnHost, 1)
+    child.stdout.emit('dsh web: http://127.0.0.1:4567\n')
+    await expect(restarted).resolves.toBe('http://127.0.0.1:4567')
+  })
+
+  it('keeps a ready host after restart so an explicit shutdown still works', async () => {
+    const child = new FakeHostChild()
+    const replacement = new FakeHostChild()
+    const spawnHost = vi.fn()
+      .mockReturnValueOnce(child)
+      .mockReturnValueOnce(replacement)
+    const supervisor = createHostSupervisor({ spawnHost })
+    const starting = supervisor.start()
+    child.stdout.emit('dsh web: http://127.0.0.1:4567\n')
+    await starting
+
+    const restarted = supervisor.restart()
+    child.emitExit(0)
+    await waitForSpawns(spawnHost, 2)
+    replacement.stdout.emit('dsh web: http://127.0.0.1:7890\n')
+    await restarted
+
+    const closing = supervisor.shutdown()
+    expect(replacement.signals).toEqual(['SIGTERM'])
+    replacement.emitExit(0)
     await expect(closing).resolves.toBeUndefined()
   })
 })

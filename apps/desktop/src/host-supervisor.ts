@@ -117,6 +117,8 @@ export interface HostSupervisor {
   start(): Promise<string>
   /** Gracefully stop once, escalating after the configured timeout. */
   shutdown(): Promise<void>
+  /** Stop the current Host (if any) and start a replacement, resolving to its ready URL. */
+  restart(): Promise<string>
 }
 
 interface Deferred<T> {
@@ -244,7 +246,24 @@ export function createHostSupervisor(options: HostSupervisorOptions): HostSuperv
     return shutdownPromise
   }
 
-  return { start, shutdown }
+  let restartPromise: Promise<string> | undefined
+  const restart = (): Promise<string> => {
+    if (restartPromise !== undefined) return restartPromise
+    restartPromise = shutdown().then(() => {
+      child = undefined
+      startPromise = undefined
+      shutdownPromise = undefined
+      exited = undefined
+      exitResult = undefined
+      ready = false
+      shuttingDown = false
+      output = ''
+      return start()
+    }).finally(() => { restartPromise = undefined })
+    return restartPromise
+  }
+
+  return { start, shutdown, restart }
 }
 
 /** Options for the real `dsh web` child. */

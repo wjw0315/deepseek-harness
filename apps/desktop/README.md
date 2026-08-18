@@ -14,6 +14,10 @@ pnpm run dev:desktop
 
 Closing the window hides it. Use the tray menu to restore the window or quit. Explicit quit waits for the Host process to stop and escalates termination after the bounded Host grace period.
 
+### Host auto-restart
+
+If the Web Host process exits unexpectedly (a crash, or a plugin — such as a third-party plugin market's "restart" — tearing the Host down under the supervisor), the app **auto-relaunches the Host and rebuilds the window**, so a plugin-prompted restart brings the application back instead of leaving it exited. The relaunch is bound: when a Host keeps exiting on every start, the app gives up and quits rather than looping. An explicit quit (tray → quit / Cmd+Q) still exits without auto-restart.
+
 ## Packaging
 
 ```sh

@@ -31,6 +31,13 @@ let lifecycle: DesktopLifecycle | undefined
 let hostOrigin: string | undefined
 let bootQuitPromise: Promise<void> | undefined
 let quitReleased = false
+/** True while an auto-relaunch of the Host and window is in flight. */
+let restarting = false
+/** Consecutive rapid auto-restarts, bounded so a crashing Host ends in a quit, not a loop. */
+let restartAttempts = 0
+let firstRestartAttemptAt = 0
+const MAX_RAPID_RESTARTS = 3
+const RAPID_RESTART_WINDOW_MS = 30_000
 
 /** Resolve artifacts from the checkout in development and resourcesPath when packaged. */
 function hostPaths(): { nodeExecutable: string; cliEntry: string; cwd: string; electronRunAsNode: boolean } {
@@ -238,6 +245,17 @@ async function createMainWindow(): Promise<BrowserWindow> {
   return window
 }
 
+/**
+ * Tear down the current window and create a replacement pointed at the
+ * current {@link hostOrigin}. Used when a fresh Host binds a new loopback
+ * URL (OS-assigned port) after an auto-restart.
+ */
+async function recreateWindow(): Promise<void> {
+  const current = mainWindow
+  if (current !== undefined && !current.isDestroyed()) current.destroy()
+  await createMainWindow()
+}
+
 function createTray(): void {
   tray = new Tray(trayImage())
   tray.setToolTip(APP_NAME)
@@ -268,6 +286,41 @@ function requestAppQuit(): Promise<void> {
   return bootQuitPromise
 }
 
+/**
+ * Relaunch the Web Host and rebuild the window, so a plugin-market "restart"
+ * (which tears the Host process down under the desktop supervisor) brings the
+ * application back instead of leaving it exited. Bounded against a Host that
+ * crashes on every start so a broken configuration ends in a quit, not a loop.
+ */
+function restartApp(): void {
+  if (restarting || quitReleased || lifecycle?.isQuitting) return
+  const now = Date.now()
+  if (firstRestartAttemptAt === 0 || now - firstRestartAttemptAt > RAPID_RESTART_WINDOW_MS) {
+    firstRestartAttemptAt = now
+    restartAttempts = 0
+  }
+  restartAttempts += 1
+  if (restartAttempts > MAX_RAPID_RESTARTS) {
+    console.error('desktop Host keeps exiting; giving up and quitting')
+    void requestAppQuit()
+    return
+  }
+  restarting = true
+  void (async () => {
+    try {
+      if (host === undefined) throw new Error('desktop Host is not ready to restart')
+      const nextOrigin = await host.restart()
+      hostOrigin = nextOrigin
+      await recreateWindow()
+    } catch (error) {
+      console.error('desktop Host restart failed:', error)
+      void requestAppQuit()
+    } finally {
+      restarting = false
+    }
+  })()
+}
+
 async function boot(): Promise<void> {
   if (bootQuitPromise !== undefined) return
   const paths = hostPaths()
@@ -287,7 +340,7 @@ async function boot(): Promise<void> {
     log: chunk => process.stderr.write(chunk),
     onUnexpectedExit: ({ code, signal }) => {
       console.error(`desktop Host exited unexpectedly (code ${String(code)}, signal ${String(signal)})`)
-      void requestAppQuit()
+      restartApp()
     },
   })
   hostOrigin = await host.start()

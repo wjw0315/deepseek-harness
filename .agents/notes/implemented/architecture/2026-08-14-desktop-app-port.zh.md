@@ -10,7 +10,7 @@ DeepSeek Harness GUI 是一个环回 web 应用：`dsh web` Host 在 `127.0.0.1`
 
 ## 决策
 
-`apps/desktop` 处的桌面应用是一个 Electron 外壳，作为子进程监督未作改动的 `dsh web` Host。`Electron` 的主入口（`src/main.ts`）创建一个 `HostSupervisor`（`src/host-supervisor.ts`），它以 `web --host 127.0.0.1 --port 0 --expose-internals` 方式 `spawn` 内置的 `@deepseek-ai/dsh` CLI 并持有其生命周期：它将并发的 `start`/`shutdown` 调用合并为一次，若在就绪超时（默认 90 秒）内失败则判定启动失败，在一个有界的宽限期（默认 5 秒）之后将关闭从 `SIGTERM` 升级为 `SIGKILL`，并且当一个已就绪的 Host 在非应用拥有的关闭流程之外退出时，会请求退出应用。外壳窗口是一个 `BrowserWindow`，其加载 Host 的环回 URL，因此整个产品面——客户端、API 网关、LLM 提供方、工具——就是已经交付的 Web 应用，而不是重新实现。
+`apps/desktop` 处的桌面应用是一个 Electron 外壳，作为子进程监督未作改动的 `dsh web` Host。`Electron` 的主入口（`src/main.ts`）创建一个 `HostSupervisor`（`src/host-supervisor.ts`），它以 `web --host 127.0.0.1 --port 0 --expose-internals` 方式 `spawn` 内置的 `@deepseek-ai/dsh` CLI 并持有其生命周期：它将并发的 `start`/`shutdown` 调用合并为一次，若在就绪超时（默认 90 秒）内失败则判定启动失败，在一个有界的宽限期（默认 5 秒）之后将关闭从 `SIGTERM` 升级为 `SIGKILL`，并且当一个已就绪的 Host 在非应用拥有的关闭流程之外退出时，会**自动重新拉起 Host（`restart`）并重建 `BrowserWindow`**，而不是退出应用——重拉是有界的，因此一旦 Host 每次启动都反复退出，就会以退出收场，而不是死循环；显式退出依旧不会自动重启。外壳窗口是一个 `BrowserWindow`，其加载 Host 的环回 URL，因此整个产品面——客户端、API 网关、LLM 提供方、工具——就是已经交付的 Web 应用，而不是重新实现。
 
 打包后的应用与系统 Node 无关。打包后，`spawnDshWeb` 选择 `process.execPath`（即 Electron 可执行文件）作为兼容 Node 的运行时，并在子进程的环境里设置 `ELECTRON_RUN_AS_NODE=1`，这样 Electron 内置的 Node 就可以把嵌入的 CLI 当作普通 Node 进程来运行；在开发环境下它选择 `PATH` 中的 `node` 二进制且不设置该变量。不额外交付第二个 Node 运行时。Host 入口在打包时解析为 `process.resourcesPath/host/node_modules/@deepseek-ai/dsh/lib/bin.js`，在开发环境下解析为检出目录的 `apps/cli/lib/bin.js`。
 
