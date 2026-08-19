@@ -17,7 +17,11 @@ import {
   type MenuItemConstructorOptions,
 } from 'electron'
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
-import { desktopInstallRecoveryStatePath } from '@deepseek-ai/dsh-desktop-host'
+import {
+  DesktopInstallRecoveryStore,
+  desktopInstallRecoveryStatePath,
+  type DesktopInstallRecoveryTransaction,
+} from '@deepseek-ai/dsh-desktop-host'
 import { startDesktopControlServer, writeDesktopBootstrapFile, type DesktopControlServer } from './desktop-host-bridge.ts'
 import { openDesktopTerminalWindow } from './desktop-terminal.ts'
 import { installDesktopPnpmRuntime, type DesktopPnpmRuntimeInstallation } from './desktop-runtime-environment.ts'
@@ -332,6 +336,15 @@ interface DesktopBridge {
   readonly control: DesktopControlServer
   readonly pnpmRuntime: DesktopPnpmRuntimeInstallation
   readonly bootstrapPath: string
+  /** Install-recovery reconciliation this generation must resolve; the launcher owns it. */
+  readonly recovery: InstallRecoveryReconciliation | undefined
+}
+
+/** One claimed install-recovery transaction the Host boot must confirm or roll back. */
+interface InstallRecoveryReconciliation {
+  readonly store: DesktopInstallRecoveryStore
+  readonly transaction: DesktopInstallRecoveryTransaction
+  settled: boolean
 }
 
 let desktopBridge: DesktopBridge | undefined
@@ -388,8 +401,9 @@ async function setupDesktopBridge(nodeExecutable: string, cliEntry: string, brid
     requestRestart: () => { restartApp() },
   })
   const bootstrapPath = join(userData, 'host-bootstrap.json')
+  const generationId = randomUUID()
   writeDesktopBootstrapFile({
-    generationId: randomUUID(),
+    generationId,
     profile: {
       name: DESKTOP_PROFILE_NAME,
       dir: join(homeDir, 'profiles', DESKTOP_PROFILE_NAME),
@@ -412,7 +426,70 @@ async function setupDesktopBridge(nodeExecutable: string, cliEntry: string, brid
     },
     actions: { controlUrl: control.url, controlToken: control.token },
   }, bootstrapPath)
-  return { control, pnpmRuntime, bootstrapPath }
+  const recovery = await reconcileInstallRecoveryAtStartup(userData, homeDir, generationId)
+  return { control, pnpmRuntime, bootstrapPath, recovery }
+}
+
+/**
+ * Claim the install-recovery WAL for a fresh desktop generation and resolve every claim shape.
+ * A verifying install waits for a healthy Host boot; interrupted installs roll back immediately.
+ */
+async function reconcileInstallRecoveryAtStartup(
+  userData: string,
+  homeDir: string,
+  generationId: string,
+): Promise<InstallRecoveryReconciliation | undefined> {
+  const store = new DesktopInstallRecoveryStore({
+    statePath: desktopInstallRecoveryStatePath(userData),
+    profileName: DESKTOP_PROFILE_NAME,
+    profileDir: join(homeDir, 'profiles', DESKTOP_PROFILE_NAME),
+    generationId,
+  })
+  const claim = await store.claim()
+  if (claim.action === 'none') return undefined
+  if (claim.action === 'verify') return { store, transaction: claim.transaction, settled: false }
+  if (claim.action === 'prompt') {
+    console.error(`dsh-desktop: rolling back interrupted plugin install ${claim.transaction.packageName} (${claim.reason})`)
+    await rollbackClaimedInstall(store, claim.transaction.transactionId)
+    return undefined
+  }
+  if (claim.action === 'terminal') {
+    if (claim.transaction.phase === 'verified') {
+      await store.clear(claim.transaction.transactionId)
+    } else if (claim.transaction.phase === 'rolled-back' && claim.transaction.rollbackNotifiedAt === undefined) {
+      await store.markRollbackNotified(claim.transaction.transactionId)
+    } else if (claim.transaction.phase === 'manual-recovery-required') {
+      throw new Error(`dsh-desktop: plugin install recovery requires manual repair (${claim.transaction.transactionId})`)
+    }
+    return undefined
+  }
+  console.error(`dsh-desktop: deferred plugin install recovery (${claim.reason}) for ${claim.transaction.packageName}`)
+  return undefined
+}
+
+/** Restore one claimed transaction's profile backups and persist the rollback notice. */
+async function rollbackClaimedInstall(store: DesktopInstallRecoveryStore, transactionId: string): Promise<void> {
+  const result = await store.restore(transactionId, 'startup-failed')
+  if (result.status === 'manual-recovery-required') {
+    throw new Error(`dsh-desktop: plugin install rollback requires manual repair (${result.transaction.transactionId})`)
+  }
+  await store.markRollbackNotified(transactionId)
+}
+
+/** Confirm or roll back a verifying install once the Host's health is observable. */
+async function settleVerifyingInstall(
+  recovery: InstallRecoveryReconciliation,
+  healthy: boolean,
+): Promise<void> {
+  if (recovery.settled) return
+  recovery.settled = true
+  if (healthy) {
+    await recovery.store.markHealthy(recovery.transaction.transactionId)
+    await recovery.store.clear(recovery.transaction.transactionId)
+  } else {
+    console.error(`dsh-desktop: Host boot failed; rolling back plugin install ${recovery.transaction.packageName}`)
+    await rollbackClaimedInstall(recovery.store, recovery.transaction.transactionId)
+  }
 }
 
 /** Spawn environment carrying the bridge's pnpm PATH entry; undefined in development. */
@@ -446,10 +523,25 @@ async function boot(): Promise<void> {
     log: chunk => process.stderr.write(chunk),
     onUnexpectedExit: ({ code, signal }) => {
       console.error(`desktop Host exited unexpectedly (code ${String(code)}, signal ${String(signal)})`)
+      const verify = desktopBridge?.recovery
+      if (verify !== undefined) {
+        void settleVerifyingInstall(verify, false).catch((cause) => {
+          console.error('dsh-desktop: verifying install rollback failed:', cause)
+        })
+      }
       restartApp()
     },
   })
   hostOrigin = await host.start()
+  const verify = desktopBridge?.recovery
+  if (verify !== undefined) {
+    try {
+      await fetch(hostOrigin, { signal: AbortSignal.timeout(30_000) })
+      await settleVerifyingInstall(verify, true)
+    } catch {
+      await settleVerifyingInstall(verify, false)
+    }
+  }
   hardenSession()
   lifecycle = createDesktopLifecycle({
     getWindow: () => mainWindow,

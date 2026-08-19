@@ -32,7 +32,7 @@ Electron 侧留在 apps/desktop。启动器契约是一个文件：main.ts 写�
 ## Consequences
 
 - staged runtime 发布后，market 的受管操作预期可在打包桌面启动中工作；打包应用仍需完整打包冒烟来验证对真实 npm registry 的端到端安装路径。
-- 待定安装恢复记录的启动健康对账（下一代认领、失败回滚）由 Electron 启动器拥有；本次只移植 WAL 数据面，因此安装与重启之间的崩溃会留下待定记录、阻塞下一次受保护安装，直到手动清理。
+- 待定安装恢复记录的启动健康对账由 apps/desktop main.ts 拥有：每个打包代认领 WAL，awaiting-restart 安装在 Host 响应首次 HTTP 探测后确认（随后清除），Host 退出或探测失败则回滚；中断安装在认领时即回滚。与上游的渲染器启动监控不同，轻量 Electron 外壳以 Host HTTP 可达性作为健康信号。
 - 这些文件的上游同步成为移植维护事项：source of record 是上游 monorepo 的 dsh-plugin-desktop 目录。
 - 打包契约（首次 DMG 冒烟发现）：Electron 主包必须内联 workspace 包（`tsdown.config.ts` 对 `@deepseek-ai/*` 设置 `noExternal`）——electron-builder 只把包文件夹拷进 app.asar、不解析 peer，外部导入 dsh-desktop-host 会因缺少 cordis peer 在启动时失败。
 - market 进入 `PROFILE_TEMPLATES.web` 之前创建的旧 profile 保留更早的 bundle 列表（上游 `dshmarket`，还被供应链 minimumReleaseAge 策略拒绝）；已存在的 `~/.dsh` profile 需补一次 `@deepseek-ai/dsh-community-market` 行，市场 UI 才会出现。
