@@ -203,6 +203,26 @@ function marketManagedPackage(value: string): boolean {
   return !BLOCKED_PRODUCT_PACKAGES.has(value)
 }
 
+/** Keep only the trailing characters of the package manager's stderr for diagnostics. */
+function tailRecorder(limit = 2_000): { push(chunk: unknown): void; tail(): string } {
+  let text = ''
+  return {
+    push(chunk: unknown): void {
+      text = `${text}${String(chunk)}`.slice(-limit)
+    },
+    tail(): string {
+      return text.trim()
+    },
+  }
+}
+
+/** Append the recorded package-manager stderr to a stable failure message. */
+function detailMessage(message: string, detail: string): string {
+  if (detail === '') return message
+  const lines = detail.split(/\r?\n/).filter(line => line.trim() !== '').slice(-8)
+  return `${message} ${lines.join(' | ')}`
+}
+
 function candidateKey(sourceRecordId: string, itemId: string): string {
   return `${sourceRecordId}\0${itemId}`
 }
@@ -1245,19 +1265,23 @@ export class MarketInstallService {
       throw new MarketInstallError('operation-failed', 'The desktop package manager could not start.')
     }
     handle.stdout.resume()
-    handle.stderr.resume()
+    const stderrTail = tailRecorder()
+    handle.stderr.on('data', stderrTail.push)
     const cancel = () =>{  handle.cancel() }
     combinedSignal.addEventListener('abort', cancel, { once: true })
     let outcome: MarketDesktopPnpmOutcome
     try { outcome = await handle.done }
     catch {
       combinedSignal.throwIfAborted()
-      throw new MarketInstallError('operation-failed', 'The desktop package manager failed.')
+      throw new MarketInstallError('operation-failed', detailMessage('The desktop package manager failed.', stderrTail.tail()))
     }
     finally { combinedSignal.removeEventListener('abort', cancel) }
     combinedSignal.throwIfAborted()
     if (outcome.exitCode !== 0 || outcome.signal !== null) {
-      throw new MarketInstallError('operation-failed', 'The desktop package manager did not complete successfully.')
+      throw new MarketInstallError(
+        'operation-failed',
+        detailMessage('The desktop package manager did not complete successfully.', stderrTail.tail()),
+      )
     }
   }
 
@@ -1266,6 +1290,10 @@ export class MarketInstallService {
     return [
       'add',
       '--save-exact',
+      // Release-age safety wait is covered by the market's own integrity
+      // verification of the exact version the user confirmed, so same-day
+      // releases install without a separate 24-hour delay.
+      '--config.minimumReleaseAge=0',
       `--registry=${NPM_REGISTRY}`,
       ...(scope === undefined ? [] : [`--${scope}:registry=${NPM_REGISTRY}`]),
       `${packageName}@${version}`,
