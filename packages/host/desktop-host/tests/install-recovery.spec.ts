@@ -188,6 +188,29 @@ describe('Desktop plugin install recovery WAL', () => {
     expect(existsSync(join(dirname(target.statePath), 'backups', prepared.transactionId))).toBe(false)
   })
 
+  it('retires a sealed same-generation install so the next update can begin', async () => {
+    const target = fixture()
+    const origin = store(target)
+    const prepared = await origin.begin({
+      packageName: 'plugin-a',
+      packageVersion: '1.0.0',
+      receiptId: 'receipt-0001',
+    })
+    writePostinstall(target)
+    const sealed = await origin.seal(prepared.transactionId)
+    expect(sealed.phase).toBe('awaiting-restart')
+
+    const next = await origin.begin({
+      packageName: 'plugin-b',
+      packageVersion: '2.0.0',
+      receiptId: 'receipt-0002',
+    })
+    expect(next.phase).toBe('prepared')
+    expect(next.packageName).toBe('plugin-b')
+    expect(existsSync(join(dirname(target.statePath), 'backups', prepared.transactionId))).toBe(false)
+    expect((await origin.read())?.packageName).toBe('plugin-b')
+  })
+
   it('restores a mix of admitted pre- and postimages without overwriting unrelated paths', async () => {
     const target = fixture()
     const origin = store(target)

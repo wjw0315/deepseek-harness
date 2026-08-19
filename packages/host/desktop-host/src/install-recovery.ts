@@ -420,8 +420,18 @@ export class DesktopInstallRecoveryStore {
     }
     assertPackageVersion(input.packageVersion)
     assertOpaqueId('receipt id', input.receiptId)
-    if (await this.read() !== undefined) {
-      throw new Error(`${BIN_NAME}: another plugin install recovery transaction is pending`)
+    const pending = await this.read()
+    if (pending !== undefined) {
+      // A sealed same-generation install left the Host serving this call running
+      // with the plugin, so retire the record and let the next update begin.
+      // Every other phase (prepared, verifying, rolled-back, manual-recovery-required)
+      // or another generation's record still blocks a new transaction.
+      if (pending.phase === 'awaiting-restart' && pending.createdByGeneration === this.generationId) {
+        await unlink(this.statePath)
+        await rm(this.backupDirectory(pending.transactionId), { recursive: true, force: true })
+      } else {
+        throw new Error(`${BIN_NAME}: another plugin install recovery transaction is pending`)
+      }
     }
     await this.assertProfileDirectory()
     const transactionId = randomUUID()
