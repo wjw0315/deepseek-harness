@@ -29,7 +29,7 @@
   },
   "build": {
     "appId": "ai.deepseek.harness.desktop",
-    "productName": "DSH-desktop",
+    "productName": "DS-harness",
     "electronDist": "node_modules/electron/dist",
     "afterPack": "./scripts/verify-packaged-runtime.ts",
     "asar": true,

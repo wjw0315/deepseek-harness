@@ -298,10 +298,23 @@ function requestAppQuit(): Promise<void> {
 }
 
 /**
- * Relaunch the Web Host and rebuild the window, so a plugin-market "restart"
- * (which tears the Host process down under the desktop supervisor) brings the
- * application back instead of leaving it exited. Bounded against a Host that
- * crashes on every start so a broken configuration ends in a quit, not a loop.
+ * Relaunch the whole desktop application, as the plugin market's "restart"
+ * expects: a fresh process with a fresh generation that claims and clears the
+ * pending install-recovery record, so the next install is not blocked by the
+ * sealed write-ahead transaction. This mirrors upstream's app.relaunch()+exit.
+ */
+function relaunchApp(): void {
+  if (restarting || quitReleased || lifecycle?.isQuitting) return
+  console.log('dsh-desktop: relaunching the desktop application for a new generation')
+  app.relaunch()
+  void requestAppQuit()
+}
+
+/**
+ * Relaunch the Host process in place and rebuild the window after a Host crash.
+ * This is NOT the plugin-market restart path: it does not rotate the desktop
+ * generation, so a pending install-recovery record is left for the next full
+ * application launch to claim.
  */
 function restartApp(): void {
   if (restarting || quitReleased || lifecycle?.isQuitting) return
@@ -410,7 +423,7 @@ async function setupDesktopBridge(nodeExecutable: string, cliEntry: string, brid
   })
   const control = await startDesktopControlServer({
     openTerminal: () => { openDesktopTerminal({ name: DESKTOP_PROFILE_NAME, dir: join(homeDir, 'profiles', DESKTOP_PROFILE_NAME), homeDir }, app.getPath('userData'), process.execPath, cliEntry) },
-    requestRestart: () => { restartApp() },
+    requestRestart: () => { relaunchApp() },
   })
   const bootstrapPath = join(userData, 'host-bootstrap.json')
   const generationId = randomUUID()
