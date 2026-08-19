@@ -563,13 +563,7 @@ describe('MarketSettingsTab', () => {
     expect(screen.getByText(receipt.version)).toBeTruthy()
     expect(screen.getByText('web')).toBeTruthy()
     expect(screen.getByText(en.operationWarning)).toBeTruthy()
-    const support = screen.getByRole('link', { name: en.contactUs }) as HTMLAnchorElement
-    expect(support.parentElement?.textContent).toBe(
-      `${en.operationRiskBeforeContact}${en.contactUs}${en.operationRiskAfterContact}`,
-    )
-    expect(support.href).toBe('https://github.com/anywhere-labs/deepseek-harness-desktop/issues')
-    expect(support.target).toBe('_blank')
-    expect(support.rel).toContain('noopener')
+    expect(screen.getByText(en.operationRiskBeforeContact)).toBeTruthy()
     expect(screen.getByText(en.restartAfterOperation)).toBeTruthy()
 
     fireEvent.click(screen.getByRole('button', { name: en.confirmInstall }))

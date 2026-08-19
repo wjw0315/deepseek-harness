@@ -11,6 +11,7 @@ export const zh = {
   'unavailable': '不可用',
   'save': '保存',
   'cancel': '取消',
+  'restartApp': '重新启动',
 } satisfies Record<string, string>
 
 /** The `settings.desktopHost` namespace key union. */
@@ -27,4 +28,5 @@ export const en = {
   'unavailable': 'Unavailable',
   'save': 'Save',
   'cancel': 'Cancel',
+  'restartApp': 'Restart',
 } satisfies Record<string, string>

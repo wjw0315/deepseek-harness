@@ -1238,7 +1238,12 @@ export class MarketInstallService {
         ? this.pnpm.runPlugin(args, profile.dir, combinedSignal)
         : await this.pnpm.runPluginInstall(args, profile.dir, installRecovery, combinedSignal)
     }
-    catch { throw new MarketInstallError('operation-failed', 'The desktop package manager could not start.') }
+    catch (cause) {
+      if (cause instanceof Error && cause.message.includes('another plugin install recovery transaction is pending')) {
+        throw new MarketInstallError('conflict', 'A previous plugin install is awaiting restart. Restart the app to finish it, then retry this install.')
+      }
+      throw new MarketInstallError('operation-failed', 'The desktop package manager could not start.')
+    }
     handle.stdout.resume()
     handle.stderr.resume()
     const cancel = () =>{  handle.cancel() }

@@ -30,6 +30,8 @@ export interface DesktopHostConfigRowInjected {
   setWebPort: (value: number) => Promise<void>
   /** Write the trusted-host list. */
   setTrustedHosts: (values: string[]) => Promise<void>
+  /** Ask the desktop shell to relaunch the whole application. */
+  requestRestart: () => Promise<void>
 }
 
 /** Full component props. */
@@ -58,6 +60,7 @@ export function DesktopHostConfigRow({
   setWebHost,
   setWebPort,
   setTrustedHosts,
+  requestRestart,
 }: DesktopHostConfigRowProps): JsxElement {
   const snapshot = useDesktopHostConfig(s => s)
   const [open, setOpen] = useState(false)
@@ -94,6 +97,9 @@ export function DesktopHostConfigRow({
           <div className={css.title}>{t('title')}</div>
           <div className={css.desc}>{description}</div>
         </div>
+        <button type="button" className={css.restartButton} onClick={() => { void requestRestart() }}>
+          {t('restartApp')}
+        </button>
         <button
           type="button"
           className={css.selector}

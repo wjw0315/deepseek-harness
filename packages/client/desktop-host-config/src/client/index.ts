@@ -46,6 +46,9 @@ export function apply(ctx: ClientContext): void {
     setWebHost: value => controller.setWebHost(value),
     setWebPort: value => controller.setWebPort(value),
     setTrustedHosts: values => controller.setTrustedHosts(values),
+    requestRestart: async () => {
+      await fetch('/api/desktop-host-config/restart', { method: 'POST' })
+    },
   })
 
   ctx.effect(() => {

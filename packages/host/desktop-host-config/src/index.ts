@@ -14,12 +14,19 @@
 
 import { mkdirSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
+import type { IncomingMessage, ServerResponse } from 'node:http'
 import type { Context } from '@deepseek-ai/cordis'
 import { installSettingsSection, settingsNamespace } from '@deepseek-ai/dsh-settings'
 import z from '@deepseek-ai/schemastery'
 
 /** Stable cordis plugin name. */
 export const name = 'desktop-host-config'
+
+/** Registered services the desktop host config depends on. */
+export const inject = ['webServer']
+
+/** Loopback route the General settings row POSTs to request a desktop relaunch. */
+export const DESKTOP_RESTART_ROUTE = '/api/desktop-host-config/restart'
 
 /**
  * Settings namespace: the top-level key this plugin's fields live under in the
@@ -141,4 +148,55 @@ export function apply(ctx: Context, config?: Config): void {
     },
     onChange: sync,
   })
+
+  // A General-settings restart button drives the Electron shell's full
+  // application relaunch through the same loopback desktop-action route the
+  // boot has running; without a packaged shell the action service is absent
+  // and the route reports that honestly. The webServer service is injected for
+  // Loader boots; a bare-context apply (tests, composition probes) may not
+  // provide it, so check the optional service and register only when present.
+  const webServer = ctx.get('webServer')
+  if (webServer === undefined) return
+  webServer.register({
+    kind: 'exact',
+    path: DESKTOP_RESTART_ROUTE,
+    handler: async (req: IncomingMessage, res: ServerResponse) => {
+      if (req.method !== 'POST' || !desktopRestartAllowed(req)) {
+        writeJson(res, 405, { error: 'requesting a restart requires a local same-origin POST' })
+        return
+      }
+      const actions = ctx.get('desktopActions')
+      if (actions === undefined) {
+        writeJson(res, 503, { error: 'desktop restart is unavailable' })
+        return
+      }
+      writeJson(res, 200, { ok: true })
+      void actions.requestRestart().catch((cause: unknown) => {
+        ctx.logger.error(`dsh-desktop-host-config: restart request failed: ${cause instanceof Error ? cause.message : String(cause)}`)
+      })
+    },
+  }, DESKTOP_RESTART_ROUTE)
+}
+
+/** Write a JSON response; the route owns a short lifetime, so no streaming. */
+function writeJson(res: ServerResponse, status: number, value: unknown): void {
+  res.writeHead(status, { 'content-type': 'application/json' })
+  res.end(JSON.stringify(value))
+}
+
+/**
+ * Require a same-origin POST: the Origin header must match this loopback
+ * renderer origin, and the request must arrive over loopback. The desktop
+ * app refuses an all-interfaces bind, so loopback is the only listener.
+ */
+function desktopRestartAllowed(req: IncomingMessage): boolean {
+  const origin = req.headers.origin
+  const host = req.headers.host
+  if (typeof origin !== 'string' || typeof host !== 'string') return false
+  try {
+    const originHost = new URL(origin).host
+    return originHost === host
+  } catch {
+    return false
+  }
 }

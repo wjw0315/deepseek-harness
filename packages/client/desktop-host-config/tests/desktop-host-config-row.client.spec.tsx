@@ -42,6 +42,7 @@ function mount(controller: HostConfigController, actions?: Partial<DesktopHostCo
       setWebHost={vi.fn(async () => {})}
       setWebPort={vi.fn(async () => {})}
       setTrustedHosts={vi.fn(async () => {})}
+      requestRestart={vi.fn(async () => {})}
       useDesktopHostConfig={bindSnapshotSelector(controller.store)}
       t={t}
       {...actions}
@@ -50,6 +51,14 @@ function mount(controller: HostConfigController, actions?: Partial<DesktopHostCo
 }
 
 describe('DesktopHostConfigRow', () => {
+  it('requests a desktop restart from the restart button', () => {
+    const controller = new HostConfigController(fakeScope(ready({ webPort: 51925 })))
+    const requestRestart = vi.fn(async () => {})
+    mount(controller, { requestRestart })
+    fireEvent.click(screen.getByRole('button', { name: 'Restart' }))
+    expect(requestRestart).toHaveBeenCalledTimes(1)
+  })
+
   it('renders the current bind as the collapsed pill', () => {
     const controller = new HostConfigController(fakeScope(ready({ webPort: 51925 })))
     mount(controller)

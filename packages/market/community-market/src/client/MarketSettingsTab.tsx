@@ -1907,8 +1907,6 @@ function OperationConfirmModal({ preview, pending, error, onCancel, onConfirm, t
             <StateDot state="warning" size={12} />
             <span>
               {t('operationRiskBeforeContact')}
-              <a href={DSH_DESKTOP_ISSUES_URL} target="_blank" rel="noopener noreferrer">{t('contactUs')}</a>
-              {t('operationRiskAfterContact')}
             </span>
           </div>
         )}
@@ -2063,8 +2061,6 @@ function ItemActionModal({
               <StateDot state="warning" size={12} />
               <span>
                 {t('operationRiskBeforeContact')}
-                <a href={DSH_DESKTOP_ISSUES_URL} target="_blank" rel="noopener noreferrer">{t('contactUs')}</a>
-                {t('operationRiskAfterContact')}
               </span>
             </div>
             <div className="dshMarketOperationWarning"><StateDot state="warning" size={12} /><span>{t('restartAfterOperation')}</span></div>
@@ -2130,8 +2126,6 @@ function ItemActionModal({
                   <StateDot state="warning" size={12} />
                   <span>
                     {t('operationRiskBeforeContact')}
-                    <a href={DSH_DESKTOP_ISSUES_URL} target="_blank" rel="noopener noreferrer">{t('contactUs')}</a>
-                    {t('operationRiskAfterContact')}
                   </span>
                 </div>
               </div>
