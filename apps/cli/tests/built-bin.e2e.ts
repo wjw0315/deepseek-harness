@@ -707,8 +707,9 @@ describe.skipIf(!existsSync(dshBin))('dsh BUILT bin (node lib/bin.js, no tsx)', 
       expect(stdout).toContain('# == @deepseek-ai/dsh-base')
       expect(stdout).toContain("name: '@deepseek-ai/dsh-host-webserver'")
       // The shipped web profile bundles the in-box plugin market.
-      expect(stdout).toContain('id: dsh-market')
-      expect(stdout).toContain('name: dshmarket')
+      expect(stdout).toContain('# == @deepseek-ai/dsh-community-market')
+      expect(stdout).toContain('id: community-market')
+      expect(stdout).toContain("name: '@deepseek-ai/dsh-community-market'")
     }, 30_000)
 
     it('prints the headless profile without Host or browser layers', async () => {

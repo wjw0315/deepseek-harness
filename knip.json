@@ -252,6 +252,21 @@
         "tests/**/*.ts"
       ]
     },
+    "packages/market/community-market": {
+      "entry": [
+        "tests/**/*.spec.{ts,tsx}",
+        "scripts/**/*.mjs"
+      ],
+      "project": [
+        "src/**/*.{ts,tsx}",
+        "tests/**/*.{ts,tsx}",
+        "scripts/**/*.mjs"
+      ],
+      "ignoreDependencies": [
+        "@types/react-dom",
+        "react-dom"
+      ]
+    },
     "packages/core/tools": {
       "entry": [
         "tests/**/*.spec.ts"

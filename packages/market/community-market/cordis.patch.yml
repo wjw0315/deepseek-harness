@@ -1,0 +1,10 @@
+# @deepseek-ai/dsh-community-market bundle patch: mounts the community plugin
+# market (browse, search, managed package operations) as a Host row in the web
+# profile. The market registers its /api/community-market/* routes and its
+# settings namespace through the `webServer` and `settings` services that the
+# base and web-app layers already provide; the browser client composes through
+# its dsh.client declaration (settings "Plugin market" tab plus sidebar
+# launcher and shell overlay) once this row is a loaded entry.
+- insert:
+    - id: community-market
+      name: '@deepseek-ai/dsh-community-market'

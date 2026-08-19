@@ -1,0 +1,57 @@
+{
+  "extends": "../../../tsconfig.base.json",
+  "compilerOptions": {
+    "rootDir": "src",
+    "outDir": "lib/types",
+    "tsBuildInfoFile": "lib/tsconfig.host.tsbuildinfo"
+  },
+  "files": [
+    "src/adapters/dsh-1024store.ts",
+    "src/adapters/dshfind.ts",
+    "src/adapters/snapshot-pages.ts",
+    "src/adapters/standard-http.ts",
+    "src/api-types.ts",
+    "src/catalog/service.ts",
+    "src/catalog/source-store.ts",
+    "src/contracts/errors.ts",
+    "src/contracts/generated/catalog-provider-page.ts",
+    "src/contracts/generated/catalog-query.ts",
+    "src/contracts/generated/catalog-snapshot.ts",
+    "src/contracts/generated/catalog-source.ts",
+    "src/contracts/identity.ts",
+    "src/contracts/index.ts",
+    "src/contracts/query.ts",
+    "src/contracts/schemas.ts",
+    "src/contracts/types.ts",
+    "src/contracts/validate.ts",
+    "src/host/routes.ts",
+    "src/index.ts",
+    "src/install/manual.ts",
+    "src/install/service.ts",
+    "src/invariant.ts",
+    "src/media/index.ts",
+    "src/media/normalize-image.ts",
+    "src/media/ref.ts",
+    "src/media/restricted-image.ts",
+    "src/media/service.ts",
+    "src/media/types.ts",
+    "src/network/restricted-http.ts"
+  ],
+  "references": [
+    {
+      "path": "../../../vendor/cordis"
+    },
+    {
+      "path": "../../../vendor/schemastery"
+    },
+    {
+      "path": "../../settings/settings"
+    },
+    {
+      "path": "../../host/webserver"
+    },
+    {
+      "path": "../../runtime-diagnostics/invariants"
+    }
+  ]
+}

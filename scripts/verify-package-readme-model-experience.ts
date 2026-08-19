@@ -163,6 +163,7 @@ const SENTENCE_MODEL_EXPERIENCE: Readonly<Record<string, SentenceContract>> = {
   'packages/web/web-fetch-http': { kind: 'indirect', reason: 'The provider backend delegates model rendering to dsh-tool-web.' },
   'packages/web/web-search-exa': { kind: 'indirect', reason: 'The provider backend delegates model rendering to dsh-tool-web.' },
   'packages/workflow/workflow': { kind: 'indirect', reason: 'The service delegates parent and child model rendering to its consumer and engine.' },
+  'packages/market/community-market': { kind: 'indirect', reason: 'The market composes a browser settings/launcher surface over Host API routes and the optional desktop install seam; browsing and install outcomes are rendered by the client UI and desktop capabilities, which own any model-visible presentation.' },
 }
 
 interface Failure {
