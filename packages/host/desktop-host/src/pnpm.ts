@@ -1,8 +1,9 @@
 /** Desktop-owned package-manager capability for the active DSH profile. */
 
+import { randomUUID } from 'node:crypto'
 import { delimiter, isAbsolute } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import type { Readable } from 'node:stream'
+import { PassThrough, type Readable } from 'node:stream'
 import { Context, Service } from '@deepseek-ai/cordis'
 import type {
   SubprocessHandle,
@@ -202,10 +203,10 @@ export class DesktopPnpm extends Service {
     signal?: AbortSignal,
   ): DesktopPnpmHandle {
     const resolvedArgs = validatedArgs(args)
-    if (resolvedArgs[0] === 'add') {
-      throw new Error(`${BIN_NAME}: plugin add must use the recoverable install boundary`)
-    }
     assertAbsolutePath('plugin invoking directory', invokingDir)
+    if (resolvedArgs[0] === 'add') {
+      return this.startRecoverableAdd(resolvedArgs, invokingDir, signal)
+    }
     return this.start({
       argv: [
         this.bootstrap.appExecutable,
@@ -274,6 +275,82 @@ export class DesktopPnpm extends Service {
         this.installPreparationActive = false
       }
       throw cause
+    }
+  }
+
+  /**
+   * Serve a plain `plugin add` from an in-profile caller (for example a dshmarket
+   * self-update) through the recoverable install boundary, minting the receipt here.
+   * The handle stays synchronous: the child's streams are piped into pass-through
+   * streams as soon as the write-ahead transaction has been prepared.
+   * @param resolvedArgs - validated `dsh plugin add` arguments.
+   * @param invokingDir - absolute caller directory used to anchor relative package specifications.
+   * @param signal - optional cancellation for this operation.
+   * @returns live output streams, completion, and cancellation.
+   */
+  private startRecoverableAdd(
+    resolvedArgs: readonly string[],
+    invokingDir: string,
+    signal?: AbortSignal,
+  ): DesktopPnpmHandle {
+    const stdout = new PassThrough()
+    const stderr = new PassThrough()
+    const abort = new AbortController()
+    signal?.addEventListener('abort', () => abort.abort(), { once: true })
+    const done = (async (): Promise<DesktopPnpmOutcome> => {
+      if (this.closed) throw new Error(`${BIN_NAME}: desktop pnpm generation is closed`)
+      if (this.active !== undefined || this.installPreparationActive) {
+        throw new Error(`${BIN_NAME}: another desktop pnpm operation is already running`)
+      }
+      abort.signal.throwIfAborted()
+      this.installPreparationActive = true
+      let transaction: Awaited<ReturnType<DesktopInstallRecoveryStore['begin']>> | undefined
+      try {
+        transaction = await this.installRecovery.begin({
+          ...parseAddTargetSpec(resolvedArgs),
+          receiptId: randomUUID(),
+        })
+        const handle = this.start({
+          argv: [
+            this.bootstrap.appExecutable,
+            '--expose-internals',
+            this.bootstrap.dshBootstrapPath,
+            'plugin',
+            '--profile',
+            this.bootstrap.activeProfileName,
+            ...resolvedArgs,
+          ],
+          cwd: invokingDir,
+          recoveryTransactionId: transaction.transactionId,
+          allowInstallPreparation: true,
+          signal: abort.signal,
+        })
+        handle.stdout.pipe(stdout)
+        handle.stderr.pipe(stderr)
+        try {
+          return await handle.done
+        } finally {
+          this.installPreparationActive = false
+        }
+      } catch (cause) {
+        stdout.end()
+        stderr.end()
+        try {
+          if (transaction !== undefined) await this.rollbackUnstartedInstall(transaction.transactionId)
+        } finally {
+          stdout.end()
+          stderr.end()
+        }
+        throw cause
+      } finally {
+        this.installPreparationActive = false
+      }
+    })()
+    return {
+      stdout,
+      stderr,
+      done,
+      cancel: () => { abort.abort() },
     }
   }
 
@@ -411,6 +488,25 @@ export class DesktopPnpm extends Service {
       await this.installRecovery.clear(transactionId)
     }
   }
+}
+
+/**
+ * Extract the installed package identity from validated `plugin add` arguments.
+ * The target is the final non-option argument; `name@version` splits at its last
+ * `@` while scoped names keep their leading `@`. A bare name installs latest.
+ * @param resolvedArgs - validated `dsh plugin add` arguments.
+ * @returns the WAL identity fields for a caller that supplied no receipt.
+ */
+function parseAddTargetSpec(resolvedArgs: readonly string[]): {
+  packageName: string
+  packageVersion: string
+} {
+  const target = [...resolvedArgs].reverse().find(argument => argument !== 'add' && !argument.startsWith('-')) ?? 'unknown'
+  const separator = target.lastIndexOf('@')
+  if (separator > 0) {
+    return { packageName: target.slice(0, separator), packageVersion: target.slice(separator + 1) }
+  }
+  return { packageName: target, packageVersion: '' }
 }
 
 /** Stable Cordis provider name. */

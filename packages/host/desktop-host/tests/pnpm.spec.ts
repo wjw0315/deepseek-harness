@@ -273,11 +273,41 @@ describe('desktop pnpm Host service', () => {
     expect(() => harness.service.runPlugin(['remove'], '/workspace/bad\0path')).toThrow(
       'plugin invoking directory must be an absolute path without NUL',
     )
-    expect(() => harness.service.runPlugin(['add', 'plugin'], '/workspace')).toThrow(
-      'plugin add must use the recoverable install boundary',
+    expect(() => harness.service.runPlugin(['add', 'plugin'], 'relative/path')).toThrow(
+      'plugin invoking directory must be an absolute path',
     )
     expect(harness.spawn).not.toHaveBeenCalled()
     await harness.dispose()
+  })
+
+  it('routes a plain plugin add through the recoverable boundary with a minted receipt', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'dsh-desktop-pnpm-plain-add-'))
+    const selectedBootstrap = bootstrap(root)
+    const manifestPath = join(selectedBootstrap.activeProfileDir, 'package.json')
+    const child = controlledSubprocess()
+    try {
+      mkdirSync(selectedBootstrap.activeProfileDir, { recursive: true })
+      writeFileSync(manifestPath, JSON.stringify({ dependencies: {} }))
+      const harness = await createHarness([child], selectedBootstrap)
+
+      const operation = harness.service.runPlugin(
+        ['add', '--config.minimumReleaseAge=0', '@scope/dshmarket@1.13.1'],
+        '/workspace',
+      )
+      writeFileSync(manifestPath, JSON.stringify({ dependencies: { '@scope/dshmarket': '1.13.1' } }))
+      finish(child)
+      await expect(operation.done).resolves.toEqual({ exitCode: 0, signal: null })
+
+      expect(harness.spawn.mock.calls[0]?.[0].argv).toContain('@scope/dshmarket@1.13.1')
+      expect(JSON.parse(readFileSync(selectedBootstrap.installRecoveryStatePath, 'utf8'))).toMatchObject({
+        packageName: '@scope/dshmarket',
+        packageVersion: '1.13.1',
+        phase: 'awaiting-restart',
+      })
+      await harness.dispose()
+    } finally {
+      rmSync(root, { recursive: true, force: true })
+    }
   })
 
   it('holds the generation gate until the first operation process tree exits', async () => {
