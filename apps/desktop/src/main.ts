@@ -356,7 +356,7 @@ function openDesktopTerminal(directory: string): void {
  * @param nodeExecutable - executable the Host runs under (Electron RunAsNode).
  * @returns the bridge whose env additions the spawn must publish.
  */
-function setupDesktopBridge(nodeExecutable: string, cliEntry: string): DesktopBridge {
+async function setupDesktopBridge(nodeExecutable: string, cliEntry: string): Promise<DesktopBridge> {
   const userData = app.getPath('userData')
   const homeDir = resolveDshHome()
   const electronVersion = (process.versions as { electron?: string }).electron ?? '0.0.0'
@@ -370,7 +370,7 @@ function setupDesktopBridge(nodeExecutable: string, cliEntry: string): DesktopBr
     stateDir: join(userData, 'host-commands', DESKTOP_PROFILE_NAME),
     environment: bridgeEnv,
   })
-  const control = startDesktopControlServer({
+  const control = await startDesktopControlServer({
     openTerminal: () => { openDesktopTerminal(join(homeDir, 'profiles', DESKTOP_PROFILE_NAME)) },
     requestRestart: () => { restartApp() },
   })
@@ -415,7 +415,7 @@ async function boot(): Promise<void> {
       DSH_DESKTOP: '1',
       DSH_DESKTOP_HOST_CONFIG: userDesktopConfigPath(),
     }
-    desktopBridge = setupDesktopBridge(paths.nodeExecutable, paths.cliEntry)
+    desktopBridge = await setupDesktopBridge(paths.nodeExecutable, paths.cliEntry)
   }
   host = createHostSupervisor({
     spawnHost: () => spawnDshWeb({

@@ -11,4 +11,8 @@ export default defineConfig({
   dts: false,
   clean: false,
   deps: { neverBundle: ['electron'] },
+  // Workspace packages must inline into the bundle: electron-builder stages
+  // only their folders into app.asar without resolving their peers
+  // (dsh-desktop-host imports @deepseek-ai/cordis at runtime).
+  noExternal: [/^@deepseek-ai\//],
 })

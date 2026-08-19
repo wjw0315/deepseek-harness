@@ -44,7 +44,7 @@ function voidDeferred(): {
   const gate = deferred<undefined>()
   return {
     promise: gate.promise,
-    resolve: () => { gate.resolve() },
+    resolve: () => { gate.resolve(undefined) },
     reject: (reason?: unknown) => { gate.reject(reason) },
   }
 }

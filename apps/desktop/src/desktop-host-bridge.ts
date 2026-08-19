@@ -57,7 +57,7 @@ export interface DesktopBootstrapFileContents {
  * @param handlers - launcher operations invoked for accepted actions.
  * @returns the listening endpoint with its bearer token.
  */
-export function startDesktopControlServer(handlers: DesktopControlHandlers): DesktopControlServer {
+export async function startDesktopControlServer(handlers: DesktopControlHandlers): Promise<DesktopControlServer> {
   const token = randomBytes(24).toString('base64url')
   const server = createServer((request, response) => {
     if (request.method !== 'POST') {
@@ -94,7 +94,10 @@ export function startDesktopControlServer(handlers: DesktopControlHandlers): Des
       response.writeHead(404).end()
     })
   })
-  server.listen(0, '127.0.0.1')
+  await new Promise<void>((accept, reject) => {
+    server.once('error', reject)
+    server.listen(0, '127.0.0.1', () => { server.off('error', reject); accept() })
+  })
   const address = server.address()
   if (address === null || typeof address === 'string') throw new Error('dsh-desktop: control server did not bind a loopback port')
   return {
