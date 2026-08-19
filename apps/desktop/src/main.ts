@@ -1,5 +1,7 @@
 /** Electron application shell for the loopback DeepSeek Harness Web Host. */
 
+import { spawn } from 'node:child_process'
+import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -15,6 +17,10 @@ import {
   type Event,
   type MenuItemConstructorOptions,
 } from 'electron'
+import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
+import { desktopInstallRecoveryStatePath } from '@deepseek-ai/dsh-desktop-host'
+import { startDesktopControlServer, writeDesktopBootstrapFile, type DesktopControlServer } from './desktop-host-bridge.ts'
+import { installDesktopPnpmRuntime, type DesktopPnpmRuntimeInstallation } from './desktop-runtime-environment.ts'
 import { createHostSupervisor, spawnDshWeb, type HostSupervisor } from './host-supervisor.ts'
 import { createDesktopLifecycle, type DesktopLifecycle } from './window-lifecycle.ts'
 
@@ -321,17 +327,104 @@ function restartApp(): void {
   })()
 }
 
+/** Live desktop-service bridge for the packaged app: control channel, pnpm runtime, bootstrap file. */
+interface DesktopBridge {
+  readonly control: DesktopControlServer
+  readonly pnpmRuntime: DesktopPnpmRuntimeInstallation
+  readonly bootstrapPath: string
+}
+
+let desktopBridge: DesktopBridge | undefined
+
+/** Profile the packaged desktop app boots; 'dsh web' is '--profile web'. */
+const DESKTOP_PROFILE_NAME = 'web'
+
+/**
+ * Open the OS terminal at the active profile directory.
+ * @param directory - absolute profile directory to open.
+ */
+function openDesktopTerminal(directory: string): void {
+  if (process.platform === 'darwin') {
+    spawn('open', ['-a', 'Terminal', directory], { detached: true, stdio: 'ignore' }).unref()
+    return
+  }
+  console.error('desktop terminal opening is not supported on this platform yet')
+}
+
+/**
+ * Establish the packaged-app bridge that activates the Host's desktop services.
+ * @param nodeExecutable - executable the Host runs under (Electron RunAsNode).
+ * @returns the bridge whose env additions the spawn must publish.
+ */
+function setupDesktopBridge(nodeExecutable: string, cliEntry: string): DesktopBridge {
+  const userData = app.getPath('userData')
+  const homeDir = resolveDshHome()
+  const electronVersion = (process.versions as { electron?: string }).electron ?? '0.0.0'
+  const pnpmBinPath = join(process.resourcesPath, 'host/node_modules/pnpm/bin/pnpm.mjs')
+  const bridgeEnv: NodeJS.ProcessEnv = { ...process.env }
+  const pnpmRuntime = installDesktopPnpmRuntime({
+    platform: process.platform,
+    appExecutable: nodeExecutable,
+    pnpmBinPath,
+    electronVersion,
+    stateDir: join(userData, 'host-commands', DESKTOP_PROFILE_NAME),
+    environment: bridgeEnv,
+  })
+  const control = startDesktopControlServer({
+    openTerminal: () => { openDesktopTerminal(join(homeDir, 'profiles', DESKTOP_PROFILE_NAME)) },
+    requestRestart: () => { restartApp() },
+  })
+  const bootstrapPath = join(userData, 'host-bootstrap.json')
+  writeDesktopBootstrapFile({
+    generationId: randomUUID(),
+    profile: {
+      name: DESKTOP_PROFILE_NAME,
+      dir: join(homeDir, 'profiles', DESKTOP_PROFILE_NAME),
+      homeDir,
+      statePath: join(userData, 'profile-selection', 'state.json'),
+    },
+    pnpm: {
+      appExecutable: nodeExecutable,
+      pnpmBinPath,
+      electronVersion,
+      nodeBinDir: pnpmRuntime.nodeBinDir,
+      nodeShimPath: pnpmRuntime.nodeShimPath,
+      clearEnvironmentPath: pnpmRuntime.clearEnvironmentPath,
+      dshBootstrapPath: cliEntry,
+      installRecoveryStatePath: desktopInstallRecoveryStatePath(userData),
+    },
+    plugins: {
+      statePath: join(userData, 'plugin-management', 'state.json'),
+      installAnchor: join(process.resourcesPath, 'host/node_modules/@deepseek-ai/dsh/package.json'),
+    },
+    actions: { controlUrl: control.url, controlToken: control.token },
+  }, bootstrapPath)
+  return { control, pnpmRuntime, bootstrapPath }
+}
+
+/** Spawn environment carrying the bridge's pnpm PATH entry; undefined in development. */
+let desktopBridgeEnv: NodeJS.ProcessEnv | undefined
+
 async function boot(): Promise<void> {
   if (bootQuitPromise !== undefined) return
   const paths = hostPaths()
   assertHostArtifacts(paths)
+  if (app.isPackaged && process.env.DSH_DESKTOP_BOOTSTRAP !== '0') {
+    desktopBridgeEnv = {
+      ...process.env,
+      DSH_DESKTOP: '1',
+      DSH_DESKTOP_HOST_CONFIG: userDesktopConfigPath(),
+    }
+    desktopBridge = setupDesktopBridge(paths.nodeExecutable, paths.cliEntry)
+  }
   host = createHostSupervisor({
     spawnHost: () => spawnDshWeb({
       ...paths,
       webHost: resolveWebHost(),
       webPort: resolveWebPort(),
       trustedHosts: resolveTrustedHosts(),
-      env: {
+      ...(desktopBridge === undefined ? {} : { desktopBootstrapPath: desktopBridge.bootstrapPath }),
+      env: desktopBridgeEnv ?? {
         ...process.env,
         DSH_DESKTOP: '1',
         DSH_DESKTOP_HOST_CONFIG: userDesktopConfigPath(),
@@ -368,6 +461,10 @@ if (!app.requestSingleInstanceLock()) {
     if (quitReleased) return
     event.preventDefault()
     void requestAppQuit()
+  })
+  app.on('will-quit', () => {
+    desktopBridge?.pnpmRuntime.dispose()
+    void desktopBridge?.control.close()
   })
   app.whenReady().then(boot).catch(async (error: unknown) => {
     console.error('desktop startup failed:', error)

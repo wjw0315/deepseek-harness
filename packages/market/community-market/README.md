@@ -18,4 +18,4 @@ None. The market issues no model request, so it contributes no prompt or KV-cach
 
 ## Known Limitations and Deferred Work
 
-- Managed package operations require the Desktop profile, pnpm, action, and plugin capabilities that are not part of this package's port; until those land, the market is read-only for browsing and the install surface renders a Desktop-required state.
+- Managed package operations require the Desktop profile, pnpm, action, and plugin capabilities owned by `@deepseek-ai/dsh-desktop-host`; those services go live only when the Electron launcher publishes its bootstrap, so a standalone `dsh web` keeps the install surface in its Desktop-required state.

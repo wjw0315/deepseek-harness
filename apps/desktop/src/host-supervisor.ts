@@ -284,6 +284,8 @@ export interface SpawnDshWebOptions {
   readonly webPort?: string
   /** Authorities the /api browser-trust fence accepts (host or host:port). */
   readonly trustedHosts?: readonly string[]
+  /** Launcher bootstrap file for the Host's desktop services, published as DSH_DESKTOP_BOOTSTRAP. */
+  readonly desktopBootstrapPath?: string
 }
 
 function streamAdapter(stream: NodeJS.ReadableStream): HostChild['stdout'] {
@@ -321,6 +323,9 @@ export function spawnDshWeb(options: SpawnDshWebOptions): HostChild {
     DSH_DESKTOP_WEB_PORT: webPort,
     ...(options.trustedHosts === undefined || options.trustedHosts.length === 0 ? {} : {
       DSH_DESKTOP_TRUSTED_HOSTS: options.trustedHosts.filter(entry => entry !== '').join(','),
+    }),
+    ...(options.desktopBootstrapPath === undefined ? {} : {
+      DSH_DESKTOP_BOOTSTRAP: options.desktopBootstrapPath,
     }),
   }
   const args = ['--expose-internals', options.cliEntry, 'web', '--host', webHost, '--port', webPort]

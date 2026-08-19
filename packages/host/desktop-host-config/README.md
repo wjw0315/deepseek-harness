@@ -32,3 +32,16 @@ A standalone `dsh web` (no `DSH_DESKTOP_*` env) shows the settings card but writ
 ## Development
 
 Typecheck and build with the package's own tsconfig; the package is a host row in the `dsh-web-app` bundle.
+
+## Model Experience
+
+None, as the plugin is a settings-card bridge: it resolves and writes host bind flags to a JSON handoff file and registers no prompt, tool, or schema.
+
+#### KV Cache effect
+
+None. The plugin resolves and writes host configuration only; it issues no model request, so it contributes no prompt or KV-cache state.
+
+## Known Limitations and Deferred Work
+
+- **No feedback from the spawn** — the plugin never learns whether the shell applied the written values (or whether the spawn rejected them); the card stays a fire-and-forget write.
+- **The Electron reader (`apps/desktop`) lives outside this package** — the JSON handoff has a consumer only under the Electron shell; nothing in this repository closes that loop.

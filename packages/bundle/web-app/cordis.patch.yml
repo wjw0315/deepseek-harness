@@ -100,6 +100,13 @@
     - id: desktop-host-config
       name: '@deepseek-ai/dsh-desktop-host-config'
 
+    # Desktop Host services: profiles, managed pnpm with install recovery,
+    # direct-bundle inventory, and native actions. Inert in a standalone
+    # 'dsh web' boot; the Electron launcher publishes a bootstrap file that
+    # turns the community market's package operations live.
+    - id: desktop-host
+      name: '@deepseek-ai/dsh-desktop-host'
+
     # The API gateway: the transport-agnostic dispatch face every client shape
     # shares. The base layer's agent-default-model service owns the default model.
     - id: api-gateway

@@ -32,3 +32,16 @@
 ## 开发
 
 使用本包自身的 tsconfig 进行类型检查与构建；本包是 `dsh-web-app` bundle 中的一个 host 行。
+
+## 模型体验
+
+None, as the plugin is a settings-card bridge: it resolves and writes host bind flags to a JSON handoff file and registers no prompt, tool, or schema.
+
+#### KV Cache effect
+
+无。本插件只解析并写入宿主配置；它不发起任何模型请求，因此不贡献任何 prompt 或 KV-cache 状态。
+
+## 已知限制与暂缓事项
+
+- **没有来自启动的回执** —— 本插件无从得知壳是否应用了写入的值（或启动是否拒绝了这些值）；设置卡始终只是一次单向写入。
+- **Electron 读取方（`apps/desktop`）不在本包内** —— JSON 交接文件只有在 Electron 壳下才有消费者；本仓库内没有任何东西闭环这条链路。

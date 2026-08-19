@@ -83,6 +83,7 @@
     "@deepseek-ai/dsh-client-ui-workspace": "workspace:^",
     "@deepseek-ai/dsh-client-desktop-host-config": "workspace:^",
     "@deepseek-ai/dsh-desktop-host-config": "workspace:^",
+    "@deepseek-ai/dsh-desktop-host": "workspace:^",
     "@deepseek-ai/dsh-cmdline": "workspace:^",
     "@deepseek-ai/dsh-code-runtime-worker-thread": "workspace:^",
     "@deepseek-ai/dsh-community-market": "workspace:^",

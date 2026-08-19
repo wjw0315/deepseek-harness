@@ -363,6 +363,14 @@ const SERVICE_ROLES: ServiceRole[] = [
     note: 'Owns one shared E2B SDK handle, remote working directory, and final sandbox disposition so both fundamental E2B providers inhabit the same Linux runtime.',
   },
   {
+    key: 'desktopPnpm',
+    pkg: 'desktop-host',
+    title: 'Desktop managed package manager',
+    mode: 'core',
+    consumers: ['community-market'],
+    note: 'Runs one packaged-pnpm operation at a time against the active desktop profile behind a launcher-provided runtime; the community market is its only harness consumer.',
+  },
+  {
     key: 'subprocess',
     pkg: 'subprocess',
     title: 'Subprocess seam',

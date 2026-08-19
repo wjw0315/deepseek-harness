@@ -5,5 +5,10 @@
     "outDir": "lib/types",
     "types": ["node", "electron"]
   },
-  "include": ["src"]
+  "include": ["src"],
+  "references": [
+    { "path": "../../packages/boot/app-boot" },
+    { "path": "../../packages/host/desktop-host" },
+    { "path": "../../packages/util/home-paths" }
+  ]
 }

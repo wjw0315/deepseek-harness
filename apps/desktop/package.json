@@ -14,6 +14,11 @@
     "dist:mac": "node --import tsx scripts/release-mac.ts"
   },
   "license": "MIT",
+  "dependencies": {
+    "@deepseek-ai/dsh-app-boot": "workspace:^",
+    "@deepseek-ai/dsh-desktop-host": "workspace:^",
+    "@deepseek-ai/dsh-home-paths": "workspace:^"
+  },
   "devDependencies": {
     "@types/node": "^22.20.0",
     "electron": "43.4.0",

@@ -360,6 +360,16 @@ importers:
         version: 10.0.0
 
   apps/desktop:
+    dependencies:
+      '@deepseek-ai/dsh-app-boot':
+        specifier: workspace:^
+        version: link:../../packages/boot/app-boot
+      '@deepseek-ai/dsh-desktop-host':
+        specifier: workspace:^
+        version: link:../../packages/host/desktop-host
+      '@deepseek-ai/dsh-home-paths':
+        specifier: workspace:^
+        version: link:../../packages/util/home-paths
     devDependencies:
       '@types/node':
         specifier: ^22.20.0
@@ -619,6 +629,9 @@ importers:
       '@deepseek-ai/dsh-credentials-local':
         specifier: workspace:^
         version: link:../../../packages/credentials/credentials-local
+      '@deepseek-ai/dsh-desktop-host':
+        specifier: workspace:^
+        version: link:../../../packages/host/desktop-host
       '@deepseek-ai/dsh-fs':
         specifier: workspace:^
         version: link:../../../packages/fs/fs
@@ -973,6 +986,9 @@ importers:
       '@deepseek-ai/schemastery':
         specifier: link:../../../vendor/schemastery
         version: link:../../../vendor/schemastery
+      pnpm:
+        specifier: 11.7.0
+        version: 11.7.0
 
   apps/web:
     dependencies:
@@ -2011,6 +2027,9 @@ importers:
       '@deepseek-ai/dsh-cordis-host-runner':
         specifier: workspace:^
         version: link:../../extensions/cordis-host-runner
+      '@deepseek-ai/dsh-desktop-host':
+        specifier: workspace:^
+        version: link:../../host/desktop-host
       '@deepseek-ai/dsh-desktop-host-config':
         specifier: workspace:^
         version: link:../../host/desktop-host-config
@@ -5482,6 +5501,27 @@ importers:
       '@deepseek-ai/dsh-typert-registry':
         specifier: workspace:^
         version: link:../../typert/registry
+
+  packages/host/desktop-host:
+    devDependencies:
+      '@deepseek-ai/cordis':
+        specifier: workspace:^
+        version: link:../../../vendor/cordis
+      '@deepseek-ai/dsh-app-boot':
+        specifier: workspace:^
+        version: link:../../boot/app-boot
+      '@deepseek-ai/dsh-atomic-write':
+        specifier: workspace:^
+        version: link:../../util/atomic-write
+      '@deepseek-ai/dsh-invariants':
+        specifier: workspace:^
+        version: link:../../runtime-diagnostics/invariants
+      '@deepseek-ai/dsh-subprocess':
+        specifier: workspace:^
+        version: link:../../subprocess/subprocess
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
 
   packages/host/desktop-host-config:
     dependencies:
@@ -14671,6 +14711,11 @@ packages:
     resolution: {integrity: sha512-ZIfcLJC+7E7FBFnDxm9MPmt7D+DidyQ26lewieO75AdhA2ayMtsJSES0iWzqJQbcVRSrTufQoy0DR94xHue0oA==}
     engines: {node: '>=10.4.0'}
 
+  pnpm@11.7.0:
+    resolution: {integrity: sha512-GcyFLBIMcSV2DyRD7mvgyltA+fUFmN4aCaHxd1A+AQ5Xwjx3ZG4B52HeWb+HT7IqM5jDOrlpH8E+uUa28PTWIA==}
+    engines: {node: '>=22.13'}
+    hasBin: true
+
   points-on-curve@0.2.0:
     resolution: {integrity: sha512-0mYKnYYe9ZcqMCWhUjItv/oHjvgEsfKvnUTg8sAtnHr3GVy7rGkXCb6d5cSyqrWqL4k81b9CPg3urd+T7aop3A==}
 
@@ -21061,6 +21106,8 @@ snapshots:
       '@xmldom/xmldom': 0.9.11
       base64-js: 1.5.1
       xmlbuilder: 15.1.1
+
+  pnpm@11.7.0: {}
 
   points-on-curve@0.2.0: {}
 
