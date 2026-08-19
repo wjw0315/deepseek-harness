@@ -1,6 +1,5 @@
 /** Electron application shell for the loopback DeepSeek Harness Web Host. */
 
-import { spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
 import { existsSync, readFileSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
@@ -20,6 +19,7 @@ import {
 import { resolveDshHome } from '@deepseek-ai/dsh-home-paths'
 import { desktopInstallRecoveryStatePath } from '@deepseek-ai/dsh-desktop-host'
 import { startDesktopControlServer, writeDesktopBootstrapFile, type DesktopControlServer } from './desktop-host-bridge.ts'
+import { openDesktopTerminalWindow } from './desktop-terminal.ts'
 import { installDesktopPnpmRuntime, type DesktopPnpmRuntimeInstallation } from './desktop-runtime-environment.ts'
 import { createHostSupervisor, spawnDshWeb, type HostSupervisor } from './host-supervisor.ts'
 import { createDesktopLifecycle, type DesktopLifecycle } from './window-lifecycle.ts'
@@ -343,25 +343,38 @@ const DESKTOP_PROFILE_NAME = 'web'
  * Open the OS terminal at the active profile directory.
  * @param directory - absolute profile directory to open.
  */
-function openDesktopTerminal(directory: string): void {
-  if (process.platform === 'darwin') {
-    spawn('open', ['-a', 'Terminal', directory], { detached: true, stdio: 'ignore' }).unref()
-    return
-  }
-  console.error('desktop terminal opening is not supported on this platform yet')
+function openDesktopTerminal(
+  profile: { name: string; dir: string; homeDir: string },
+  userData: string,
+  appExecutable: string,
+  cliEntry: string,
+): void {
+  openDesktopTerminalWindow({
+    appExecutable,
+    pnpmBinPath: join(process.resourcesPath, 'host/node_modules/pnpm/bin/pnpm.mjs'),
+    dshBootstrapPath: cliEntry,
+    profileName: profile.name,
+    productVersion: app.getVersion(),
+    profileDir: profile.dir,
+    homeDir: profile.homeDir,
+    installRecoveryStatePath: desktopInstallRecoveryStatePath(userData),
+    stateDir: join(userData, 'host-commands', profile.name, 'terminal'),
+    onLaunchError: (cause) => { console.error('desktop terminal failed to open:', cause) },
+  })
 }
 
 /**
  * Establish the packaged-app bridge that activates the Host's desktop services.
  * @param nodeExecutable - executable the Host runs under (Electron RunAsNode).
+ * @param cliEntry - packaged dsh CLI entry the bridge addresses.
+ * @param bridgeEnv - spawn environment the public pnpm PATH entry must be installed into.
  * @returns the bridge whose env additions the spawn must publish.
  */
-async function setupDesktopBridge(nodeExecutable: string, cliEntry: string): Promise<DesktopBridge> {
+async function setupDesktopBridge(nodeExecutable: string, cliEntry: string, bridgeEnv: NodeJS.ProcessEnv): Promise<DesktopBridge> {
   const userData = app.getPath('userData')
   const homeDir = resolveDshHome()
   const electronVersion = (process.versions as { electron?: string }).electron ?? '0.0.0'
   const pnpmBinPath = join(process.resourcesPath, 'host/node_modules/pnpm/bin/pnpm.mjs')
-  const bridgeEnv: NodeJS.ProcessEnv = { ...process.env }
   const pnpmRuntime = installDesktopPnpmRuntime({
     platform: process.platform,
     appExecutable: nodeExecutable,
@@ -371,7 +384,7 @@ async function setupDesktopBridge(nodeExecutable: string, cliEntry: string): Pro
     environment: bridgeEnv,
   })
   const control = await startDesktopControlServer({
-    openTerminal: () => { openDesktopTerminal(join(homeDir, 'profiles', DESKTOP_PROFILE_NAME)) },
+    openTerminal: () => { openDesktopTerminal({ name: DESKTOP_PROFILE_NAME, dir: join(homeDir, 'profiles', DESKTOP_PROFILE_NAME), homeDir }, app.getPath('userData'), process.execPath, cliEntry) },
     requestRestart: () => { restartApp() },
   })
   const bootstrapPath = join(userData, 'host-bootstrap.json')
@@ -415,7 +428,7 @@ async function boot(): Promise<void> {
       DSH_DESKTOP: '1',
       DSH_DESKTOP_HOST_CONFIG: userDesktopConfigPath(),
     }
-    desktopBridge = await setupDesktopBridge(paths.nodeExecutable, paths.cliEntry)
+    desktopBridge = await setupDesktopBridge(paths.nodeExecutable, paths.cliEntry, desktopBridgeEnv)
   }
   host = createHostSupervisor({
     spawnHost: () => spawnDshWeb({
