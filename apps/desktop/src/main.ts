@@ -10,6 +10,7 @@ import {
   dialog,
   Menu,
   nativeImage,
+  Notification,
   session,
   shell,
   Tray,
@@ -319,7 +320,14 @@ function restartApp(): void {
   void (async () => {
     try {
       if (host === undefined) throw new Error('desktop Host is not ready to restart')
-      const nextOrigin = await host.restart()
+      let nextOrigin: string
+      try {
+        nextOrigin = await host.restart()
+      } catch (restartError) {
+        console.error('desktop Host restart failed:', restartError)
+        if (!await rollbackOwnInstallAfterRestartFailure()) throw restartError
+        nextOrigin = await host.restart()
+      }
       hostOrigin = nextOrigin
       await recreateWindow()
     } catch (error) {
@@ -336,6 +344,10 @@ interface DesktopBridge {
   readonly control: DesktopControlServer
   readonly pnpmRuntime: DesktopPnpmRuntimeInstallation
   readonly bootstrapPath: string
+  /** Identity of the running desktop generation that owns install recovery. */
+  readonly generationId: string
+  /** Store shared with the Host services for this generation's bootstrap path. */
+  readonly recoveryStore: DesktopInstallRecoveryStore
   /** Install-recovery reconciliation this generation must resolve; the launcher owns it. */
   readonly recovery: InstallRecoveryReconciliation | undefined
 }
@@ -426,8 +438,14 @@ async function setupDesktopBridge(nodeExecutable: string, cliEntry: string, brid
     },
     actions: { controlUrl: control.url, controlToken: control.token },
   }, bootstrapPath)
-  const recovery = await reconcileInstallRecoveryAtStartup(userData, homeDir, generationId)
-  return { control, pnpmRuntime, bootstrapPath, recovery }
+  const recoveryStore = new DesktopInstallRecoveryStore({
+    statePath: desktopInstallRecoveryStatePath(userData),
+    profileName: DESKTOP_PROFILE_NAME,
+    profileDir: join(homeDir, 'profiles', DESKTOP_PROFILE_NAME),
+    generationId,
+  })
+  const recovery = await reconcileInstallRecoveryAtStartup(recoveryStore)
+  return { control, pnpmRuntime, bootstrapPath, generationId, recoveryStore, recovery }
 }
 
 /**
@@ -435,22 +453,14 @@ async function setupDesktopBridge(nodeExecutable: string, cliEntry: string, brid
  * A verifying install waits for a healthy Host boot; interrupted installs roll back immediately.
  */
 async function reconcileInstallRecoveryAtStartup(
-  userData: string,
-  homeDir: string,
-  generationId: string,
+  store: DesktopInstallRecoveryStore,
 ): Promise<InstallRecoveryReconciliation | undefined> {
-  const store = new DesktopInstallRecoveryStore({
-    statePath: desktopInstallRecoveryStatePath(userData),
-    profileName: DESKTOP_PROFILE_NAME,
-    profileDir: join(homeDir, 'profiles', DESKTOP_PROFILE_NAME),
-    generationId,
-  })
   const claim = await store.claim()
   if (claim.action === 'none') return undefined
   if (claim.action === 'verify') return { store, transaction: claim.transaction, settled: false }
   if (claim.action === 'prompt') {
     console.error(`dsh-desktop: rolling back interrupted plugin install ${claim.transaction.packageName} (${claim.reason})`)
-    await rollbackClaimedInstall(store, claim.transaction.transactionId)
+    await rollbackClaimedInstall(store, claim.transaction.transactionId, claim.transaction.packageName)
     return undefined
   }
   if (claim.action === 'terminal') {
@@ -467,13 +477,64 @@ async function reconcileInstallRecoveryAtStartup(
   return undefined
 }
 
-/** Restore one claimed transaction's profile backups and persist the rollback notice. */
-async function rollbackClaimedInstall(store: DesktopInstallRecoveryStore, transactionId: string): Promise<void> {
+/** Restore one claimed transaction's profile backups and tell the user the install was undone. */
+async function rollbackClaimedInstall(
+  store: DesktopInstallRecoveryStore,
+  transactionId: string,
+  packageName: string,
+): Promise<void> {
   const result = await store.restore(transactionId, 'startup-failed')
   if (result.status === 'manual-recovery-required') {
     throw new Error(`dsh-desktop: plugin install rollback requires manual repair (${result.transaction.transactionId})`)
   }
   await store.markRollbackNotified(transactionId)
+  notifyInstallRollback(packageName)
+}
+
+/** Surface an install rollback on the desktop; the Host may never boot to show it in-app. */
+function notifyInstallRollback(packageName: string): void {
+  console.error(`dsh-desktop: plugin install ${packageName} was rolled back after the Host failed to start with it`)
+  try {
+    new Notification({
+      title: '插件已回滚',
+      body: `${packageName} 导致 Host 无法启动，安装已自动撤销。`,
+    }).show()
+  } catch {
+    // Notifications are unavailable in some environments; the console record above stays authoritative.
+  }
+}
+
+/**
+ * Start the Host, rolling back a verifying install and retrying once when it cannot boot.
+ * A plugin whose composition breaks the Host (for example a duplicate loader entry)
+ * otherwise leaves the app dead with no recovery and no user-visible explanation.
+ */
+async function startHostWithInstallRecovery(): Promise<string> {
+  const supervisor = host
+  if (supervisor === undefined) throw new Error('dsh-desktop: desktop Host is not ready to start')
+  try {
+    return await supervisor.start()
+  } catch (cause) {
+    const verify = desktopBridge?.recovery
+    if (verify === undefined) throw cause
+    await settleVerifyingInstall(verify, false)
+    return await supervisor.start()
+  }
+}
+
+/** Roll back this generation's own pending install, if any, after a failed in-place Host restart. */
+async function rollbackOwnInstallAfterRestartFailure(): Promise<boolean> {
+  const bridge = desktopBridge
+  if (bridge === undefined) return false
+  const state = await bridge.recoveryStore.read()
+  if (
+    state === undefined
+    || state.createdByGeneration !== bridge.generationId
+    || (state.phase !== 'prepared' && state.phase !== 'awaiting-restart')
+  ) return false
+  console.error(`dsh-desktop: Host restart failed; rolling back plugin install ${state.packageName}`)
+  await rollbackClaimedInstall(bridge.recoveryStore, state.transactionId, state.packageName)
+  return true
 }
 
 /** Confirm or roll back a verifying install once the Host's health is observable. */
@@ -488,7 +549,7 @@ async function settleVerifyingInstall(
     await recovery.store.clear(recovery.transaction.transactionId)
   } else {
     console.error(`dsh-desktop: Host boot failed; rolling back plugin install ${recovery.transaction.packageName}`)
-    await rollbackClaimedInstall(recovery.store, recovery.transaction.transactionId)
+    await rollbackClaimedInstall(recovery.store, recovery.transaction.transactionId, recovery.transaction.packageName)
   }
 }
 
@@ -525,14 +586,19 @@ async function boot(): Promise<void> {
       console.error(`desktop Host exited unexpectedly (code ${String(code)}, signal ${String(signal)})`)
       const verify = desktopBridge?.recovery
       if (verify !== undefined) {
-        void settleVerifyingInstall(verify, false).catch((cause) => {
+        void settleVerifyingInstall(verify, false).catch((cause: unknown) => {
           console.error('dsh-desktop: verifying install rollback failed:', cause)
         })
       }
       restartApp()
     },
   })
-  hostOrigin = await host.start()
+  try {
+    hostOrigin = await startHostWithInstallRecovery()
+  } catch {
+    // boot() already rolled back and retried once; nothing further can recover here.
+    throw new Error('dsh-desktop: desktop Host failed to start after install recovery')
+  }
   const verify = desktopBridge?.recovery
   if (verify !== undefined) {
     try {
