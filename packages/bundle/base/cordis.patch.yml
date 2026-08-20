@@ -411,6 +411,16 @@
       config:
         apiKeyEnv: DEEPSEEK_API_KEY
 
+    - id: web-search-exa
+      name: '@deepseek-ai/dsh-web-search-exa'
+      config:
+        apiKey: !!js process.env.EXA_API_KEY
+
+    - id: web-search-perplexity
+      name: '@deepseek-ai/dsh-web-search-perplexity'
+      config:
+        apiKey: !!js process.env.PERPLEXITY_API_KEY
+
     - id: tool-web
       name: '@deepseek-ai/dsh-tool-web'
       config:
